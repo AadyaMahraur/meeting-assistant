@@ -1,0 +1,3 @@
+END OF DAY — 3rd April 2026
+  Completed:Read through Internship CharterInitialized project structureConfigured Git and pushed the initial repo to GitHub    In progress:Setting up environment: PostgreSQL remainingResearching existing tools for comparison (Otter.ai Fireflies.ai tl;dv Notion AI, Jira, Asana)Researching unfamiliar terms - ORM, CORS etc  Blockers: Should I install Docker on my PC or will a hosting server be provided?    Decisions made: NA
+  Commits/PRs: https://github.com/AadyaMahraur/meeting-assistant/commit/3a9672ec4624fdc62e8f2c76977272d177584238  
