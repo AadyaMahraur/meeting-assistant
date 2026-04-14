@@ -1,0 +1,334 @@
+Okay, alright, let’s get started, or… actually, is everyone here?
+— yeah just one sec, connecting my audio —
+Okay cool. So, um, this is the Q2 planning meeting, though honestly half the stuff is still rolling over from Q1 so maybe we shouldn’t even call it Q2 planning, it’s more like Q1.5 cleanup and whatever we can realistically do by June. Right, anyway.
+
+So what’s first… oh yeah, roadmap. So product roadmap, do we have the doc?
+— It’s in the chat.
+Ah okay, thanks. Let me open… or wait this is the wrong version. Is there a v7 or something?
+— Check the folder, the one labeled FINAL_FINAL_v2.
+…Why is it always like this. Anyway.
+So the main thing is the dashboard redesign, which, I know we said last quarter we’d kick off in February but design bandwidth got eaten by the mobile refresh and all that escalation with the settings page accessibility audit. Speaking of which, did we finish that?
+— Almost, like 92% done.
+Okay not sure what 92% means but let’s assume it’s almost done.
+
+So dashboard. Do we want to lock scope now or are we still arguing about the filtering component? Because last time half the team said drop advanced filters and the other half said it’s like the only reason power users stick around.
+— I still think we should keep it but maybe not release it until later?
+— No but then engineering will have to refactor again, right?
+— Depends how we modularize it.
+Okay okay, let’s pause. Let’s not turn this into another debate.
+
+Action item: Someone (doesn’t matter who, maybe design?) define what minimal filtering is for MVP. Just enough that users don’t get angry.
+
+And what’s the timeline again?
+— If design gives us the figma by end of May we can maybe ship by mid-July.
+“Maybe” okay, sure. Let’s write mid-July but mentally we all know it’s August.
+Next: Sales numbers. Who’s sharing the dashboard?
+— Wait one sec my screen froze.
+— Okay reload.
+— …Still frozen. I’ll just talk.
+
+So Q1 bookings came in lower, obviously, because renewals got stuck in legal. We’ve already talked about that but the main thing is the churn in SMB — it spiked to 14% which is… not great. Actually really not great.
+— But wasn’t half of that involuntary churn from failed cards?
+Yeah but that’s still churn. Doesn’t matter why.
+
+Anyway, the point is, customer success wants better tooling — like the automated risk scoring thing. I know engineering said that we can’t do the predictive model until data team finishes the event ingestion fix. What’s the status of that?
+— We deployed the patch but events are still duplicating.
+— Wait what? I thought we fixed duplication last week.
+— No that was the billing events, not the product usage events.
+Okay so which is broken?
+— Both, but differently.
+Great. Amazing.
+
+Okay, so risk scoring is basically blocked. Let’s not pretend it’s happening in Q2.
+Okay engineering updates.
+— Should I share screen?
+Sure.
+…
+Oh your zoom froze too? What’s happening today.
+
+Okay just talk.
+
+So the migration to Kubernetes is… like halfway done?
+— More like one-third.
+One-third? Oh my god. I thought we were ahead.
+— We were but then the secrets management thing broke after the vault upgrade.
+— Not broke, just… degraded.
+What does degraded mean?
+— Latency doubled.
+Okay.
+
+So when is it done.
+— End of Q2 if nothing else breaks.
+So probably Q3. Fine.
+
+And what about the queueing system?
+— We decided to go with RabbitMQ instead of Kafka.
+Wait since when?
+— Since last week’s architecture meeting.
+I wasn’t in that meeting. Why wasn’t I invited?
+— We thought you were, it was in the calendar.
+…It wasn’t.
+— Oops.
+Okay whatever. So RabbitMQ. Great. What does that change?
+— Mostly nothing except we save 30% cost and easier ops.
+Okay cool then.
+Moving on. Marketing, what’s the plan for Q2 campaigns?
+— We were going to do the AI-powered productivity thing but legal still hasn’t cleared the claims.
+Why?
+— They said the “AI-powered recommendations” phrasing is too vague and could get us flagged.
+But it IS AI-powered.
+— Yes but the FTC guidance says… blah blah.
+Okay okay fine.
+
+So what’s the backup?
+— We could push the efficiency case studies instead but they’re not done.
+Why aren’t they done.
+— Because customers are slow to approve quotes.
+Okay but last quarter we said finish at least two.
+— We finished one.
+Which one?
+— The logistics company with the inventory sync issue.
+The one with the weird numbers?
+— Yeah we fixed the numbers.
+Okay good at least something is done.
+
+What about the webinar?
+— Still no speaker.
+Seriously??
+— Well we had one but then they went to a competitor so now we can’t feature them…
+Right. Of course.
+Looping back. The API v3 launch — what’s the hold up?
+— Docs aren’t ready.
+Docs meaning what, reference docs or guides?
+— Both. We have half the guides but the examples are outdated.
+Why outdated?
+— Because the schema changed again.
+Oh right, someone changed field names.
+— Yes, engineering updated them but product didn’t update the spec.
+Wait I thought the spec was frozen.
+— It was frozen but then the mobile team requested changes.
+Why did they request changes after freeze?
+— Because they discovered inconsistencies after implementing.
+Uh-huh.
+
+Okay so API v3 going out when?
+— Hard to say, maybe early June?
+That sounds fake but okay.
+Finance update… do we have numbers?
+— Yeah but they’re rough, we’re still closing the books.
+Just share anyway.
+
+So revenue is flat-ish, CAC is slightly up, marketing spend exceeded budget by 12% which why??
+— Because of the paid social experiments
+Experiments plural?
+— Yeah we ran 9 variations.
+Why did we run so many?
+— To test messaging.
+Did any work?
+— Not really.
+Okay then maybe fewer experiments next time.
+
+Also office rent is going up, nothing to do there. Just noting it.
+Okay HR.
+— We need headcount clarity for Q2.
+Right, right. So we said maybe hiring two engineers but I think we should freeze unless something critical breaks. Thoughts?
+— Support team is drowning though.
+Right support — yes I’ve seen the queue numbers. But we can’t hire both teams.
+
+So what’s more urgent — engineering or support?
+— Support.
+— Engineering.
+Okay that’s not helpful.
+
+What’s the actual metric?
+— Support backlog is 160 tickets, average response time 38 hours.
+Okay that’s bad.
+— Engineering has 12 critical bugs unresolved.
+Also bad.
+
+Let’s… think. What if we hire one hybrid role?
+— What does that even mean.
+Okay yeah that was a dumb suggestion.
+
+Alright, HR create two job req drafts but don’t post until finance approves.
+
+Wait, before we move on — who owns the new onboarding email flow? Because someone said product owns it but then marketing said they own lifecycle and then engineering said they won’t implement until someone defines logic.
+— We thought CS owned it.
+CS?? Why would CS own emails.
+— Because it affects churn.
+Okay that’s not ownership that's just interest.
+
+So who’s writing the emails?
+— We can write them but need product to define triggers.
+Triggers meaning usage thresholds?
+— Yes and also subscription level.
+Okay product please define triggers. Deadline?
+— Uh… end of April?
+Great.
+
+Data team update.
+— We’re still cleaning the warehouse.
+Still??
+— Look, the backfill scripts keep failing because the partitioning wrong, it’s not our fault.
+I’m not blaming you, I’m asking when it’s done.
+— We don’t know until the script stops failing.
+Have you tried smaller batches?
+— Yes but then it takes forever.
+Okay this is going nowhere.
+
+What about the dashboard refresh for exec team?
+— Almost done but need metric definitions from finance.
+Finance? Why finance?
+— Because they changed how ARR is calculated.
+Fine.
+
+Also what happened with the anomaly detection POC?
+— It works but too many false positives.
+Because?
+— Because the events duplication problem.
+Right, circle of life.
+Design update.
+— We’re still working on the dashboard. And the mobile icons. And the billing page. And the dark-mode components.
+That’s too much. What’s priority?
+— Dashboard but marketing keeps asking for landing page changes.
+Marketing? Are those urgent?
+— They say yes.
+Marketing?
+— Well conversions dipped 2%.
+2%? That’s noise though.
+— They said leadership asked for improvements.
+Who in leadership?
+— Someone.
+Okay great.
+
+Look, dashboard is priority. Everything else is secondary. Unless something catches fire.
+Okay next — support escalations.
+— The export to CSV bug is still open.
+Why?
+— Because the file generator crashes with large datasets.
+How large is “large”?
+— Over 500k rows.
+And how many customers export 500k rows?
+— Three, but they all pay enterprise.
+Okay so we fix it then.
+
+What else.
+— OAuth refresh tokens expiring early.
+Why early?
+— Because mobile client isn’t refreshing them correctly.
+And why not?
+— Unknown.
+Fantastic.
+
+Anything else?
+— Yes, SSO outage from last week.
+We already wrote a postmortem.
+— Actually it’s not done, engineering still hasn’t added timelines.
+Engineering??
+— We were waiting for logs.
+Do we have logs?
+— Some.
+Okay just finish the thing. Like tomorrow.
+Okay, big picture — what are our Q2 priorities? Let’s list them and try not to argue.
+
+Dashboard redesign MVP
+API v3 launch (assuming docs magically finish)
+Kubernetes migration (maybe)
+Reduced churn in SMB (how? unclear)
+Fix data pipeline
+Improve onboarding emails
+Two case studies + one webinar
+Support backlog reduction
+
+Anything missing?
+— Mobile revamp.
+Oh right mobile, what’s left?
+— Settings, offline mode, and notifications bug.
+Notifications bug?
+— Yes push notifications don’t fire on Android 13.
+Why Android 13 specifically?
+— Permission changes.
+Okay whatever, add mobile revamp to the list.
+
+Now ranking — dashboard is #1. API v3 is #2. After that maybe support backlog?
+— But churn reduction is more important.
+Okay but churn reduction depends on risk scoring which is blocked.
+— We can do manual playbooks meanwhile.
+Okay so churn reduction maybe #3. Support backlog #4. API docs #5. Data pipeline #6. K8s migration #7.
+
+Does anyone violently disagree?
+— Marketing wants case studies higher.
+Noted but no.
+Okay there’s also the strategic stuff leadership asked — “long-term vision alignment” or whatever. Do we have an answer?
+— We’re supposed to push the team collaboration narrative.
+But that conflicts with the automation narrative.
+— No it complements it.
+Does it?
+— Sort of.
+Okay this is too abstract.
+
+Leadership basically wants reassurance we aren't pivoting again.
+— But we ARE pivoting slightly.
+Okay no one say that out loud.
+Wait quick thing — who owns the integration catalog? Because there are like 40 broken integrations in the list and someone on Reddit posted that we “don’t care about integrations” and that post got traction.
+— Engineering owns it.
+— No product owns prioritization.
+— CS owns relationship with partners.
+So who fixes the broken ones?
+— Engineering but only the ones prioritized.
+Okay which ones are prioritized?
+— None because product didn’t groom the list yet.
+Product??
+— We thought CS would rank them.
+CS??
+— We don’t know usage numbers.
+Data??
+— We don’t have clean events.
+…Okay we literally went in a circle.
+Okay we’re at the top of the hour but nothing is actually decided so let me attempt a wrap-up.
+
+Actually, wait. Did we decide whether the dashboard will include the team activity timeline?
+— I thought we dropped it.
+— No we postponed it.
+— I thought engineering said impossible.
+— Not impossible, just slow.
+Okay so what’s the decision?
+— Maybe exclude from MVP but keep in V2.
+Okay fine.
+
+And the advanced filters?
+— Still no consensus.
+Then we’re not discussing it again today.
+
+Anything absolutely urgent before we leave?
+— Yes the pricing page.
+What about it.
+— Someone changed the plan names without telling support.
+Who changed them??
+— Marketing tried new wording.
+Marketing?!?!
+— We tested copy variations.
+Without telling support???
+— We didn’t think it mattered.
+Of course it matters customers call support.
+
+Okay revert names. Or no, wait — ask support which version caused confusion. Or maybe check data?
+— Data not reliable.
+Fine just revert to old ones.
+
+Now are we done?
+— Security review for the new analytics SDK.
+Oh right. Do we need pen-testing?
+— Yes but vendor is booked until June.
+Okay so push SDK launch to July.
+
+Anything else?
+— Someone needs to update the OKRs.
+Not it.
+— Not it.
+— Definitely not it.
+Okay fine product will draft them. Or at least start.
+
+Alright let’s end because this is going nowhere and everyone looks tired.
+
+Meeting adjourned, I guess.
