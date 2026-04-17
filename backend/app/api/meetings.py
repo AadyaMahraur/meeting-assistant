@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from app.db.models import Meeting
 from app.schemas.meeting import MeetingRequest, MeetingResponse
 from app.db.database import get_db
+from app.services.ai_pipeline import process_meeting_text
+from app.services.extraction import save_extraction_results
 
 router = APIRouter()   
 
@@ -21,11 +23,18 @@ async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(g
     db.add(new_meeting)
     db.commit()
     db.refresh(new_meeting)
+    try: 
+        ai_results = process_meeting_text(new_meeting.raw_input_text)
+        save_extraction_results(new_meeting.id, ai_results, db)
+        db.refresh(new_meeting)
+    except Exception as e:
+        print("Pipeline failed: {}".format(e))
+
 
     return MeetingResponse(
         meeting_id=str(new_meeting.id), 
         status=new_meeting.status,
-        message="Meeting submitted. Processing started."
+        message="Meeting submitted. Processing started." if new_meeting.status == "completed" else "Meeting submission failed during AI extraction"
     )
 
 
