@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import Column, Boolean, Integer, String, Text, TIMESTAMP, Date, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from .database import Base
+from sqlalchemy.orm import relationship
 
 class Meeting(Base):
     __tablename__ = "meetings"
@@ -20,6 +21,10 @@ class Meeting(Base):
     short_summary = Column(Text) 
     detailed_summary = Column(Text) 
     followup_email = Column(Text)
+
+    action_items = relationship("ActionItem", backref="meeting", cascade="all, delete-orphan")
+    decisions = relationship("Decision", backref="meeting", cascade="all, delete-orphan")
+    blockers = relationship("Blocker", backref="meeting", cascade="all, delete-orphan")
 
 class ActionItem(Base):
     __tablename__ = "action_items"
