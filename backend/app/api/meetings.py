@@ -90,7 +90,7 @@ async def meetings_upload(
 
 
     
-@router.post('/{meeting_id}', response_model=MeetingDetailedResponse, status_code=status.HTTP_200_OK)
+@router.get('/{meeting_id}', response_model=MeetingDetailedResponse, status_code=status.HTTP_200_OK)
 async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
 
@@ -102,7 +102,7 @@ async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
     return meeting
     
 
-@router.post('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
+@router.get('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
 async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
 
