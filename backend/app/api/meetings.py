@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import APIRouter, HTTPException, Depends, status, File, Form, UploadFile
 from typing import Optional
 from app.db.models import Meeting
-from app.schemas.meeting import MeetingRequest, MeetingResponse
+from app.schemas.meeting import MeetingRequest, MeetingResponse, MeetingDetailedResponse, MeetingStatusResponse
 from app.db.database import get_db
 from app.services.ai_pipeline import process_meeting_text
 from app.services.extraction import save_extraction_results
@@ -20,7 +20,8 @@ async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(g
         title=request_meeting.title, 
         meeting_date=request_meeting.meeting_date, 
         raw_input_text=request_meeting.text, 
-        status="pending"
+        status="pending",
+        input_type="text"
     )
 
     db.add(new_meeting)
@@ -60,7 +61,8 @@ async def meetings_upload(
                 title=final_title, 
                 meeting_date=final_date, 
                 raw_input_text=text, 
-                status="pending"
+                status="pending",
+                input_type="transcript file"
             )
 
             db.add(new_meeting)
@@ -88,8 +90,23 @@ async def meetings_upload(
 
 
     
+@router.get('/{meeting_id}', response_model=MeetingDetailedResponse, status_code=status.HTTP_200_OK)
+async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting Not Found")
     
+    meeting.id = str(meeting.id)
     
+    return meeting
     
 
+@router.get('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
+async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
 
+    if not meeting: 
+        raise HTTPException(status_code=404, detail="Meeting Not Found")
+    
+    return meeting
