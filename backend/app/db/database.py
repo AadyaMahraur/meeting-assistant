@@ -14,5 +14,13 @@ engine = create_engine(DATABASE_URL)
 # Each instance of the SessionLocal class will be a database session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 # Class to create each of the database models
 Base = declarative_base()
+
