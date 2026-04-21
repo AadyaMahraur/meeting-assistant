@@ -1,15 +1,4 @@
-import axios from 'axios';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// const apiClient = axios.create({
-//   baseURL: API_BASE_URL,
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-// });
-
-// export default apiClient;
 
 export const submitTextMeeting = async (title, meetingDate, text) => {
   const response = await fetch(`${API_BASE_URL}/meetings/text`, {
@@ -40,5 +29,17 @@ export const submitFileMeeting = async (title, meetingDate, file) => {
     const errorData = await response.json();
     throw new Error(errorData.detail || 'Failed to upload file');
   }
+  return response.json();
+};
+
+export const getMeetingDetail = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/meetings/${id}`);
+  if (!response.ok) throw new Error('Meeting not found');
+  return response.json();
+};
+
+export const getMeetingStatus = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/meetings/${id}/status`);
+  if (!response.ok) throw new Error('Could not fetch status');
   return response.json();
 };
