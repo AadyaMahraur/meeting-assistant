@@ -6,12 +6,13 @@ const SearchBar = ({ onSearch, isLoading }) => {
   const [value, setValue] = useState("");
 
   useEffect(() => {
+    if (value === "") return;
     const timer = setTimeout(() => {
       onSearch(value);
     }, 500); // Wait 500ms after last keystroke
 
     return () => clearTimeout(timer);
-  }, [value, onSearch]);
+  }, [value]);
 
   return (
     <div className="relative w-full max-w-sm">

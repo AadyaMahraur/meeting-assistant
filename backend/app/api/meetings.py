@@ -111,17 +111,17 @@ async def meeting_search(
         Decision.description.ilike(f"%{q}%")
     )
 
-    query = query.filter(search_filter).distinct(Meeting.id)
+    query = query.filter(search_filter).group_by(Meeting.id) 
 
     total_count = query.count()
     offset = (page - 1) * per_page
 
     meetings = (
-        query.order_by(Meeting.id, desc(Meeting.created_at))
+        query.order_by(desc(Meeting.created_at)) 
         .offset(offset)
         .limit(per_page)
         .all()
-    )    
+    )   
 
 
     for m in meetings: 
@@ -133,6 +133,15 @@ async def meeting_search(
         "page": page,
         "per_page": per_page
     }
+
+@router.get('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
+async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+
+    if not meeting: 
+        raise HTTPException(status_code=404, detail="Meeting Not Found")
+    
+    return meeting
 
     
 @router.get('/{meeting_id}', response_model=MeetingDetailedResponse, status_code=status.HTTP_200_OK)
@@ -146,16 +155,6 @@ async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
     
     return meeting
   
-
-@router.get('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
-async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
-
-    if not meeting: 
-        raise HTTPException(status_code=404, detail="Meeting Not Found")
-    
-    return meeting
-
 
 
 @router.get('/', response_model=MeetingListResponse, status_code=status.HTTP_200_OK)

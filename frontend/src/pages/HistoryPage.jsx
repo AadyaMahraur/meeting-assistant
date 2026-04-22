@@ -15,6 +15,7 @@ const HistoryPage = () => {
 
   // 2. Define the load logic
   const loadData = useCallback(async () => {
+    console.log(`Fetching: Search="${searchTerm}", Page=${page}`);
     setLoading(true);
     try {
       let result;
@@ -40,11 +41,16 @@ const HistoryPage = () => {
     loadData();
   }, [loadData]);
 
-  // 4. Reset to page 1 when searching
-  const handleSearch = (val) => {
-    setSearchTerm(val);
-    setPage(1); 
-  };
+  const handleSearch = useCallback((val) => {
+    setSearchTerm((prev) => {
+      // ONLY reset to page 1 if the search text actually changed
+      if (prev !== val) {
+        setPage(1);
+        return val;
+      }
+      return prev;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
