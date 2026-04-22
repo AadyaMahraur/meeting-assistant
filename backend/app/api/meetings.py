@@ -1,14 +1,14 @@
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, HTTPException, Depends, status, File, Form, UploadFile
 from typing import Optional
-from app.db.models import Meeting
+from app.db.models import Meeting, ActionItem, Decision
 from app.schemas.meeting import MeetingRequest, MeetingResponse, MeetingDetailedResponse, MeetingStatusResponse, MeetingListResponse
 from app.db.database import get_db
 from app.services.ai_pipeline import process_meeting_text
 from app.services.extraction import save_extraction_results
 from app.utils.file_handling import validate_file, extract_text_from_file
 from datetime import datetime
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 
 router = APIRouter()   
 
@@ -93,6 +93,56 @@ async def meetings_upload(
         )
 
 
+  
+
+@router.get('/search', response_model=MeetingListResponse, status_code=status.HTTP_200_OK)
+async def meeting_search(
+    q: str,
+    page: int = 1,
+    per_page: int = 9,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Meeting).outerjoin(ActionItem).outerjoin(Decision)
+    search_filter = or_(
+        Meeting.title.ilike(f"%{q}%"),
+        Meeting.raw_input_text.ilike(f"%{q}%"),
+        Meeting.short_summary.ilike(f"%{q}%"),
+        ActionItem.description.ilike(f"%{q}%"),
+        Decision.description.ilike(f"%{q}%")
+    )
+
+    query = query.filter(search_filter).group_by(Meeting.id) 
+
+    total_count = query.count()
+    offset = (page - 1) * per_page
+
+    meetings = (
+        query.order_by(desc(Meeting.created_at)) 
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )   
+
+
+    for m in meetings: 
+        m.id = str(m.id)
+
+    return {
+        "meetings": meetings,
+        "total": total_count,
+        "page": page,
+        "per_page": per_page
+    }
+
+@router.get('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
+async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+
+    if not meeting: 
+        raise HTTPException(status_code=404, detail="Meeting Not Found")
+    
+    return meeting
+
     
 @router.get('/{meeting_id}', response_model=MeetingDetailedResponse, status_code=status.HTTP_200_OK)
 async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
@@ -104,36 +154,8 @@ async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
     meeting.id = str(meeting.id)
     
     return meeting
-    
+  
 
-@router.get('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
-async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
-
-    if not meeting: 
-        raise HTTPException(status_code=404, detail="Meeting Not Found")
-    
-    return meeting
-
-# @router.get('/', response_model=dict)
-# async def get_all_meetings(
-#     page: int = 1,
-#     per_page: int = 10,
-#     status: Optional[str] = None,
-#     db: Session = Depends(get_db)
-# ):
-
-#     query = db.query(Meeting).filter(Meeting.status == status)
-#     total_count = query.count()
-#     offset = (page - 1) * per_page
-#     meetings = query.order_by(desc(Meeting.created_at)).offset(offset).limit(per_page).all()
-    
-#     return {
-#         "meetings": meetings,
-#         "total": total_count,
-#         "page": page,
-#         "per_page": per_page
-#     }
 
 @router.get('/', response_model=MeetingListResponse, status_code=status.HTTP_200_OK)
 async def get_all_meetings(
@@ -170,3 +192,4 @@ async def get_all_meetings(
         "page": page,
         "per_page": per_page
     }
+
