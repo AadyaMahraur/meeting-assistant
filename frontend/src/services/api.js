@@ -49,3 +49,9 @@ export const getAllMeetings = async (page = 1, perPage = 9) => {
   if (!response.ok) throw new Error('Failed to fetch meeting history');
   return response.json();
 };
+
+export const searchMeetings = async (query) => {
+  const response = await fetch(`${API_BASE_URL}/meetings/search?q=${encodeURIComponent(query)}`);
+  if (!response.ok) throw new Error("Search Failed");
+  return response.json();
+}; 
