@@ -43,3 +43,9 @@ export const getMeetingStatus = async (id) => {
   if (!response.ok) throw new Error('Could not fetch status');
   return response.json();
 };
+
+export const getAllMeetings = async (page = 1, perPage = 9) => {
+  const response = await fetch(`${API_BASE_URL}/meetings/?page=${page}&per_page=${perPage}`);
+  if (!response.ok) throw new Error('Failed to fetch meeting history');
+  return response.json();
+};

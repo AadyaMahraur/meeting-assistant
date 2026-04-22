@@ -54,3 +54,23 @@ class MeetingDetailedResponse(BaseModel):
 
 class MeetingStatusResponse(BaseModel):
     status: str
+
+# for meeting history: individual, list
+class MeetingHistoryCard(BaseModel):
+    id: str
+    title: str
+    meeting_date: date
+    status: str
+    input_type: str
+    # word_count: int
+    short_summary: str
+    # action_item_count: int
+    # decision_count: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class MeetingListResponse(BaseModel):
+    meetings: List[MeetingHistoryCard]
+    total: int
+    page: int
+    per_page:int

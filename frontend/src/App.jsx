@@ -13,9 +13,8 @@ function App() {
       <Routes>
         <Route path='/' element={<HomePage/>} />
         <Route path='/history' element={<HistoryPage/>} />
-        {/* make the routes below dynamic */}
-        <Route path='/meetingDetails' element={<MeetingDetailPage/>} /> 
-        <Route path='/results' element={<ResultPage/>} /> 
+        <Route path='/meeting/:id' element={<MeetingDetailPage/>} />
+        <Route path='/results/:id' element={<ResultPage/>} /> 
       </Routes>
     </>
     

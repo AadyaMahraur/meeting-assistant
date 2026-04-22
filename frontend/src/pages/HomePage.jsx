@@ -1,5 +1,6 @@
 import NavBar from '../components/Navigation.jsx';
 import { submitTextMeeting, submitFileMeeting } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
 import TextInputForm from '../components/TextInputForm';
 import FileUploadForm from '../components/FileUploadForm';
@@ -7,6 +8,7 @@ import ProcessingIndicator from '../components/ProcessingIndicator';
 
 
 const HomePage = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('text');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -23,8 +25,7 @@ const HomePage = () => {
         data = await submitFileMeeting(formData.title, formData.meetingDate, formData.file);
       }
       
-      // Redirect to Result Page (Assuming standard browser routing for now)
-      window.location.href = `/results?id=${data.meeting_id}`;
+      navigate(`/results/${data.meeting_id}`);
       
     } catch (err) {
       setError(err.message);
