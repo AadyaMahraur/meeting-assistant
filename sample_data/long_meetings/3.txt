@@ -1,0 +1,212 @@
+Project "Chimera" - Emergency Pivot & Re-Architecture Sync (Part 1/2)
+Date: God knows what day it is (Tuesday?)
+Room: The Fishbowl
+Present: Mark (CEO), Taylor (CTO), Jess (Frontend Lead), Sam (Data/Ops)
+Context: B2C e-commerce is bleeding cash. Board mandated pivot to B2B Enterprise SaaS inventory management. We have 3 months before runway gets spicy. Monolith is dead. We are rewriting. Panic level: Orange.
+________________________________________
+[08:30] PRE-MEETING BRAIN DUMP / WHITEBOARD SCRIBBLINGS
+•	~~Monolith (Node/Express/Spaghetti)~~ -> Microservices? Serverless? Modular Monolith?
+•	MUST HAVE multi-tenancy. Old DB schema is fundamentally broken for this.
+•	SOC2 compliance by Q3 or we lose the AlphaCorp contract.
+•	Note to self: cancel the AWS reserved instances for the old elasticsearch cluster, we are burning $2k/mo on literally nothing.
+•	B2B users care about: SPEED, BULK ACTIONS, UPTIME, ROLE BASED ACCESS. They do not care about rounded corners or animations.
+[09:00] THE KICKOFF (Mark's reality check)
+•	B2C CAC (Customer Acquisition Cost) is through the roof. We are pivoting to supply chain visibility for mid-market manufacturing.
+•	We have 3 design partners. They need a working sandbox in 45 days.
+•	Taylor: "45 days to rewrite a 4-year-old codebase is a joke."
+•	Mark: "It's not a rewrite, it's a new product. Strip it to the studs. Throw away the B2C cart logic, the payment gateways, the recommendation engine. Burn it."
+•	Sam: "Wait, are we keeping the historical data?"
+•	Mark: "No. Clean slate. B2B clients bring their own data. We build the pipe."
+•	Vibe check: Terrified but relieved we don't have to maintain the legacy cart state anymore.
+[09:15] DATABASE SCHEMA NIGHTMARE (Taylor & Sam yelling at each other)
+•	Topic: Multi-tenancy approach.
+•	Options on the board:
+1.	Silo: Separate DB instance per client. (Sam: "Are you insane? Managing 50 RDS instances? The Terraform will be 10,000 lines long.")
+2.	Bridge: One DB, separate schemas per client. (Taylor: "Postgres schemas are fine but migrations are a nightmare when we have 100+ clients. client_a.users, client_b.users... gross.")
+3.	Pool: One DB, one schema, tenant_id on EVERY SINGLE TABLE.
+•	DECISION: POOL MODEL.
+o	Rules: Row Level Security (RLS) in Postgres is MANDATORY. If someone forgets a WHERE tenant_id = X clause in the ORM, we breach data privacy and get sued into oblivion.
+o	Sam: "We need a custom linter rule that blocks any PR that doesn't include tenant context in the DB query."
+o	Taylor: "We are ditching Sequelize. It's too bloated. Moving to Prisma or Drizzle. Drizzle is closer to SQL, better for strict RLS policies." -> Action: Taylor to spike Drizzle ORM + Postgres RLS this weekend.
+•	Core Tables Draft (Very rough):
+o	tenants: id (UUID), name, slug, tier (enum: basic, pro, enterprise), settings (JSONB - keep this lightweight, no deep nesting!)
+o	users: id, tenant_id (FK), email, password_hash, status.
+o	roles: id, tenant_id, name (e.g., "Warehouse Manager", "Admin").
+o	permissions: id, resource, action (e.g., inventory:write, reports:read).
+o	role_permissions: linking table.
+o	inventory_items: id, tenant_id, sku (MUST BE UNIQUE PER TENANT, NOT GLOBALLY), name, qty_on_hand, location_id.
+[10:00] AUTHENTICATION & AUTHORIZATION (The "Don't Roll Your Own Crypto" talk)
+•	Currently using some janky custom JWT implementation. We need Enterprise SSO (SAML, OIDC) or we can't sell to anyone bigger than a mom-and-pop shop.
+•	Jess: "If we use Auth0, we pay out the nose per MAU."
+•	Taylor: "B2B has low MAU but high value. Auth0 pricing is fine for B2B. BUT what about WorkOS? WorkOS is literally built for adding Enterprise SSO."
+•	RABBIT HOLE: RBAC vs ABAC.
+o	Role-Based Access Control is easy. (Admin can do X, User can do Y).
+o	Attribute-Based Access Control is hard. (User can edit Inventory Item ONLY IF Location = "New York" AND Item_Type = "Hazardous").
+o	Mark: "Do we need ABAC for MVP?"
+o	Silence in the room.
+o	Decision: Stick to RBAC for V1. Hardcode permissions.
+•	Whiteboard diagram for Auth Flow:
+1.	User hits /login -> redirects to Identity Provider (Okta/Azure AD via WorkOS).
+2.	Callback hits our backend -> We verify token, find/create User, map SSO groups to our local roles.
+3.	Generate local session.
+4.	WAIT: Are we doing JWTs in local storage or HttpOnly cookies?
+5.	Jess: "HttpOnly cookies. I am not dealing with XSS token theft in an enterprise app. We use a reverse proxy to handle the cross-domain cookie issues if UI and API are on different subdomains."
+6.	Taylor: "Fine. API is api.chimera.app, UI is app.chimera.app. We set cookie domain to .chimera.app."
+[10:45] FRONTEND ARCHITECTURE (Jess's Manifesto)
+•	"The current React SPA is a 14MB bundle of garbage. I'm throwing it out."
+•	Moving to Next.js? Remix?
+o	Remix: Better data loading, relies on web standards, great for form-heavy B2B dashboards.
+o	Next.js (App Router): Server components are cool but the caching model is confusing as hell and might break our real-time inventory updates.
+o	VOTE: Remix. We need fast, reliable mutations. B2B is literally just rendering tables and submitting giant forms.
+•	UI Library:
+o	No more custom CSS. We do not have time.
+o	Tailwind + shadcn/ui. Copy, paste, tweak the variables, move on.
+o	Mark: "Is it going to look like every other Vercel app?"
+o	Jess: "Yes, and enterprise users love that because it's predictable. They want dense information, not parallax scrolling."
+•	State Management:
+o	Zustand for global UI state (sidebar open/close, dark mode).
+o	TanStack Query (React Query) for ALL server state.
+o	Rule: NEVER put API responses in Zustand. Let React Query handle caching, invalidation, and background refetching.
+•	The "Massive Table" Problem:
+o	Inventory view might have 50,000 rows.
+o	Pagination vs Infinite Scroll?
+o	B2B users hate infinite scroll. They want page numbers and deep linking. (e.g., "Go to page 4 and look at row 12").
+o	URL-driven state is mandatory. /inventory?page=4&sort=sku_asc&filter_loc=NY.
+o	If you refresh the page, it MUST stay exactly where you were.
+o	Tech required: @tanstack/react-table for headless UI, virtualization (react-virtual) if we decide to do long lists later, but start with standard cursor-based pagination.
+[11:30] DATA INGESTION & PIPELINES (Sam's Domain)
+•	How do new clients get their historical data into our system?
+•	Currently: They email us a CSV and I run a python script manually. (UNACCEPTABLE FOR SAAS).
+•	We need a self-serve CSV importer.
+•	Problem: Client CSVs are always garbage. Wrong headers, trailing spaces, invalid dates (who uses DD-MM-YYYY natively?!).
+•	Solution: We need a mapping UI.
+o	Upload CSV -> Parse first 10 rows -> Show UI mapping "Your column 'Item_No' = Our field 'SKU'" -> Validate data types -> Push to queue.
+o	Do we build this or buy this?
+o	Taylor: "Look at Flatfile or OneSchema. Don't build a CSV importer, it's a trap. It takes 6 months to get right."
+o	Action: Mark to get pricing on OneSchema. If it's under $1k/mo, we buy it.
+•	Async Processing:
+o	Once data is mapped, we can't block the HTTP request to insert 100k rows.
+o	Need a background queue.
+o	AWS SQS + Lambda worker? Or keep it in-house with Redis + BullMQ on a Node worker?
+o	Taylor: "Keep it simple for V1. Redis + BullMQ. We don't want to deal with Lambda cold starts and connection pooling to Postgres right now. We run a dedicated worker dyno/container."
+[12:15] API DESIGN & BACKEND FRAMEWORK
+•	If we aren't using Express, what are we using?
+•	Taylor: NestJS vs Fastify vs Go?
+o	Go is fast, but nobody but Taylor knows Go.
+o	NestJS is too enterprisey (Angular for the backend), slows down MVP velocity.
+o	Fastify + tRPC.
+•	WAIT, tRPC?
+o	Jess: "If we use tRPC, I get end-to-end type safety without writing Swagger docs. If Taylor changes a DB column name, my frontend build breaks immediately. This is the way."
+o	Taylor: "Okay, but tRPC means we are tightly coupled. We can't easily expose a public REST API for our clients to use later."
+o	Mark: "Public API is a Q4 problem. MVP velocity is all that matters. If tRPC makes us 20% faster, use it."
+•	Backend Stack locked: Node, Fastify, tRPC, Drizzle ORM, Postgres.
+•	Folder Structure argument (got heated):
+o	Taylor wants Domain-Driven Design (DDD). /src/inventory/, /src/users/.
+o	Someone else wanted MVC.
+o	Verdict: Feature-sliced design. Keep the schema, router, and logic for a specific domain co-located.
+[13:00] THE "OH CRAP" MOMENT - AUDIT LOGS
+•	Sam: "I just looked at the design partner requirements. AlphaCorp requires an immutable audit log for every single inventory mutation."
+•	Dead silence.
+•	Taylor: "Every. Single. Mutation?"
+•	Sam: "If a warehouse guy changes stock from 10 to 9, we need to know who, when, IP address, and previous state."
+•	How to implement?
+1.	Application level: Write to an audit_logs table manually on every API route. (Error prone, someone will forget).
+2.	Database level: Postgres Triggers. (Hard to maintain, keeping track of the "acting user" is tricky inside a DB trigger).
+3.	Event Sourcing. (Taylor: "Absolutely not. We are not building an event sourcing system in 45 days. I will quit.")
+•	Compromise: We use Drizzle ORM middlewares/extensions. Intercept all update and delete queries, extract the diff, and push a payload to the BullMQ queue to asynchronously write to an audit_logs table.
+•	Schema for audit_logs: id, tenant_id, user_id, table_name, record_id, action (INSERT/UPDATE/DELETE), old_data (JSONB), new_data (JSONB), timestamp.
+•	Warning: This table will grow to billions of rows. We must partition it by month immediately. Postgres native partitioning on created_at.
+(Taking a 15-minute break. The whiteboard is full. We need coffee. Part 2 will cover the actual feature roadmap, deployment pipeline, and ripping out the legacy billing system...)
+
+[13:30] INFRASTRUCTURE & DEPLOYMENT (The "Where does this live?" debate)
+•	Current State: AWS EC2 instances managed by bash scripts written by an intern in 2022. (BURN IT).
+•	Requirements: SOC2 compliance means we need audit trails for deployments, VPC peering, and zero-downtime deploys.
+•	Frontend (Remix): Vercel. Period.
+o	Taylor: "But Vercel gets expensive at scale!"
+o	Jess: "We have 45 days. I am not writing a GitHub Action to deploy a Node server to AWS ECS and handling cache invalidation. Pay the $20/month Vercel Pro fee and let me sleep." -> Approved.
+•	Backend (Fastify/tRPC) & Queues (BullMQ):
+o	Render? Railway? AWS ECS/Fargate?
+o	Sam: "If AlphaCorp wants SOC2, Render is going to be a compliance headache for custom VPC networking with our database."
+o	Taylor: "Fine. AWS Fargate. I’ll write the Terraform. It’ll take me 3 days."
+o	Architecture: Application Load Balancer -> Fargate Tasks (Fastify API) -> RDS Postgres.
+o	Separate Fargate service for the BullMQ Worker. (DO NOT run background jobs on the web server container or health checks will fail during heavy CSV imports).
+•	Database (The big one):
+o	AWS RDS Postgres (Aurora).
+o	Multi-AZ deployment is mandatory.
+o	CRITICAL: We need Database Branching for dev/staging.
+o	Sam: "RDS takes 40 minutes to restore a snapshot. We can't do fast CI/CD database tests with RDS."
+o	Pivot: What about Neon (Serverless Postgres)? Instant branching.
+o	Taylor: "Does Neon pass SOC2?" -> Action: Mark to email Neon sales. If yes, we use Neon to save Taylor's sanity.
+[14:15] RIPPING OUT THE LEGACY MONOLITH (The "Spaghetti Extraction")
+•	We still have ~4,000 active B2C users paying $9.99/mo. We can't just turn off the servers.
+•	Mark: "I'm negotiating to sell the B2C book of business to a competitor. We need to keep the lights on for 90 days."
+•	Strategy: The "Strangler Fig" pattern.
+o	Move the old monolith to legacy.chimera.app.
+o	Point the main root domain to a new landing page (B2B focused).
+o	Strip the old monolith of ALL background cron jobs (marketing emails, recommendation crunching) to save AWS compute costs. Run it on a single micro-instance. Let it limp along.
+•	Billing / Stripe:
+o	Old system used Stripe Subscriptions for $9.99/mo.
+o	New B2B system: Enterprise contracts. Invoicing. Net-30 terms.
+o	Do we even build billing into the new app for V1?
+o	Mark: "No. For the 3 design partners, I will manually email them PDF invoices from QuickBooks. DO NOT WRITE BILLING CODE."
+o	Collective sigh of relief. That just saved us two weeks of development.
+[15:00] THE MVP FEATURE ROADMAP (Ruthless Triage)
+•	What actually goes into the 45-day MVP? If it's not on this list, it doesn't exist.
+•	MUST HAVES (The "AlphaCorp" requirements):
+1.	Multi-tenant Auth & RBAC: (Discussed in Part 1 - WorkOS SSO).
+2.	Locations Model: Inventory isn't just "in stock." It's at "Warehouse A, Bin 4, Shelf 2." -> Schema needs nested locations.
+3.	Core Inventory CRUD: Create, Read, Update, Delete items.
+4.	Bulk CSV Import: (Using OneSchema, as decided).
+5.	Stock Adjustments (The Ledger): You NEVER just UPDATE inventory SET qty = 50. You INSERT INTO stock_ledger (item_id, qty_change, reason). The current QTY is always a calculated sum of the ledger.
+	Taylor: "Wait, calculating sum on the fly for 50k items will bottleneck the DB."
+	Sam: "Fine, we use Materialized Views in Postgres, or we cache the current QTY on the item row, but use a DB trigger to update it based on ledger inserts." -> Decision: DB Trigger. Ledger is truth.
+6.	Audit Logs: (Middleware/BullMQ queue as decided in Part 1).
+•	CUT FROM V1 (The "Nice to Haves" graveyard):
+o	~~Barcode scanning / Mobile App~~ (They can use laptops on rolling carts for 45 days).
+o	~~Advanced Forecasting/ML~~ (AlphaCorp just wants to know what they have now, not what they'll have in December).
+o	~~Custom Dashboards/Charts~~
+	Jess: "Wait, the brief says 'Analytics Dashboard'."
+	Taylor: "Embed Metabase. Spin up a Metabase Docker container, point it at a read-replica of our RDS, and embed the iframe in the Remix app. I am not building D3.js charts from scratch." -> Genius. Approved.
+o	~~Vendor Management/Purchase Orders~~ (They can track POs in their ERP. We are just tracking physical stock for V1).
+[16:00] QA & TESTING STRATEGY (Controlled Chaos)
+•	We have no time for 100% test coverage. What is the absolute bare minimum so we don't end up in a lawsuit?
+•	Backend:
+o	Unit tests for the Fastify controllers? Waste of time.
+o	Integration Tests are mandatory. Especially for Postgres RLS (Row Level Security).
+o	Taylor: "I am writing a test suite that explicitly tries to cross-pollinate tenant data. User A requests User B's inventory. If that test doesn't return a 403 or empty array, the build fails and nobody goes home."
+•	Frontend:
+o	Drop Jest. Drop React Testing Library. Too slow to write.
+o	End-to-End only: Playwright.
+o	Jess: "We write exactly 5 Playwright tests: Login via SSO, Upload CSV, View Inventory Table, Adjust Stock Level, View Audit Log. If those 5 flows work, we ship."
+•	Data Integrity:
+o	Sam: "I need to write a nightly cron job that compares the sum of the stock_ledger against the cached qty on the inventory_items table. If there is a drift, alert Slack immediately. We cannot have silently corrupt data."
+[16:45] SPRINT ASSIGNMENTS & THE "WAR ROOM" PACT
+•	Deadline: 45 days. (Launch Date: June 15th).
+•	Rules of Engagement:
+o	No PR reviews taking longer than 4 hours. If it's blocked, walk to their desk and pair program.
+o	No new libraries added to package.json without CTO approval. (Jess: "Stop installing random npm packages for simple string manipulations!")
+o	Daily standup at 09:15. Maximum 10 minutes.
+•	Jira Board Setup (Who is doing what for the next 7 days):
+o	Taylor (Backend/Infra): * Scaffold AWS Fargate / Neon DB via Terraform.
+	Initialize Fastify + tRPC repo.
+	Write the core Postgres schema (Drizzle ORM) + RLS policies.
+o	Jess (Frontend):
+	Init Remix + Tailwind + shadcn/ui.
+	Setup WorkOS Auth wrapper.
+	Build the global layout (Sidebar, Header, Breadcrumbs).
+	Mock the Inventory Data Grid (@tanstack/react-table).
+o	Sam (Data/Middleware):
+	Get OneSchema API keys and build the CSV import webhook handler.
+	Build the BullMQ worker for the Audit Logging queue.
+	Write the stock_ledger trigger logic in raw SQL.
+o	Mark (CEO/PM):
+	Cancel AWS reserved instances for old Elasticsearch.
+	Finalize OneSchema contract.
+	Massage AlphaCorp's ego for the next 6 weeks.
+	Order dinner for the office every night at 6:30 PM.
+[17:15] FINAL WHITEBOARD SNAPSHOT:
+•	Stack = Remix + Fastify + tRPC + Drizzle + Postgres + BullMQ + Playwright
+•	Philosophy = Fast, Ugly, Secure.
+•	Mood = High stress, low sleep, zero tolerance for scope creep.
+[17:30] MEETING ADJOURNED. (Someone go find the dry erase board cleaner, Mark used a Sharpie on the left corner again).
+

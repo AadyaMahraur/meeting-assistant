@@ -1,0 +1,94 @@
+Q3 Infrastructure Migration and Scalability Strategy
+Date: April 22, 2026
+Participants:
+
+Elena (CTO): Strategic lead, focused on the "big picture" and budget.
+
+Sam (Lead Software Architect): Proponent of microservices and clean architecture.
+
+Marcus (Senior DevOps Engineer): Focused on reliability, CI/CD, and infrastructure costs.
+
+Priyanka (Product Manager): Focused on feature delivery timelines and user impact.
+
+Kevin (Backend Lead): Concerned with developer experience and migration pain.
+
+Elena: Alright, everyone, let’s get started. We have ninety minutes to hammer out the foundational strategy for the "Nexus" migration. Our current monolithic architecture is officially at its breaking point. During the flash sale last Tuesday, our API latency spiked to four seconds, and we nearly lost the primary database cluster. Priyanka, can you start by giving us the product perspective on why this can’t wait?
+
+Priyanka: Thanks, Elena. From the product side, we’re essentially paralyzed. My team has three major features—real-time collaboration, the AI-driven recommendation engine, and the third-party integration marketplace—that are all currently blocked. Every time we try to add a new service to the monolith, we see unexpected side effects in the checkout flow or the user profile service. It’s reached a point where our "velocity" is actually negative because we’re spending 60% of our time fixing regressions. We need a system where teams can deploy independently without worrying about the entire house of cards falling over.
+
+Sam: I agree. The architectural debt has matured. I’ve drafted a proposal to move toward a domain-driven microservices architecture. Specifically, I want to decouple the "Order Management," "User Identity," and "Inventory" services. Each will have its own lifecycle. However, the big question is the communication layer. Do we go with a heavy service mesh like Istio, or do we keep it simple with an API Gateway and direct gRPC calls?
+
+Marcus: If I can jump in—Sam, "simple" and "Istio" don't belong in the same sentence. From a DevOps standpoint, managing a service mesh for only five or six services is overkill. It adds a massive layer of complexity to our observability stack. I’m already struggling with the resource overhead on our current Kubernetes clusters. If we add sidecar proxies to every pod, our cloud bill is going to jump 20% just on overhead. I’d argue for a lightweight API Gateway—maybe Kong or even just Nginx Ingress—and focus on robust logging through Fluentd and Prometheus.
+
+Kevin: I’m with Marcus on the complexity, but we need to talk about the data. Moving to microservices is easy on paper, but "one database per service" is a nightmare for our reporting team. Right now, Priyanka’s team runs these massive SQL joins across the monolith DB to get monthly insights. If we split the database, how do we handle cross-service queries? Are we looking at a Kafka-based event-driven architecture to keep read-models in sync?
+
+Sam: That’s exactly what I was thinking, Kevin. We implement an event bus. When a "User" is updated in the Identity service, it publishes an event. The "Marketing" service and "Analytics" service subscribe to that and update their local stores. It’s eventually consistent, but it solves the coupling issue.
+
+Priyanka: Wait, "eventually consistent"? If a user changes their password or their subscription tier, does that mean they might see the old data for a few minutes? Because that’s a "Support" nightmare.
+
+Elena: It shouldn't be minutes, Priyanka. We’re talking milliseconds. But Kevin, what’s the developer effort on this? If we start the migration in June, when can Kevin’s team actually ship the first microservice?
+
+Kevin: Honestly? If we have to set up Kafka clusters, Schema Registries, and new CI/CD pipelines, we aren’t shipping anything until August. My team knows Python and Django. Asking them to suddenly manage distributed event-streaming and eventual consistency is a huge ask. We’ll need at least three weeks of dedicated training or we’ll just be building a distributed monolith, which is worse.
+
+Marcus: We could use a managed service like AWS MSK to take the sting out of the Kafka management, but the cost is high. Alternatively, we could start with RabbitMQ. It’s simpler, we’ve used it before for the notification service, and it handles the basic pub/sub stuff fine.
+
+Sam: RabbitMQ doesn't give us the replayability that Kafka does. If the Analytics service goes down for four hours, Kafka lets us "replay" those events from the offset. RabbitMQ makes that much harder. If we’re doing this, let's do it right. Let’s build the "Nexus" on a foundation that lasts five years, not eighteen months.
+
+Elena: Let’s look at the budget. Marcus, if we go the "Full Kafka + Managed Kubernetes" route, what are we looking at?
+
+Marcus: Roughly $12,000 a month in additional infra costs for the staging and production environments. That doesn't include the "human cost" Kevin mentioned.
+
+Elena: Okay, that’s manageable if—and only if—it stops the downtime. We lost more than that in revenue during the four-hour outage last month. Priyanka, if we take Kevin’s team off feature work for all of June to focus on this "foundational training," what’s the impact on the roadmap?
+
+Priyanka: It means the "Integration Marketplace" moves to Q4. I can sell that to the board if I can guarantee that the "AI Recommendations" will be faster and more stable when they do launch. But I need a hard commitment on the dates. I can’t have the infrastructure team telling me in July that we’re still "configuring clusters."
+
+Kevin: I can give you a commitment if Sam simplifies the initial scope. Let's not migrate everything at once. Let's pick the "Notification Service." It’s already semi-isolated. We move that to a microservice first, get the Kafka pipeline working with a low-stakes service, and then tackle "Identity."
+
+Sam: That’s a fair compromise. It's a "Vertical Slice" approach. We build the full pipe—CI/CD, event bus, monitoring—for one small service.
+
+Marcus: I like that. I can have the terraform scripts for the new staging environment ready by next Friday. But I need to know: are we sticking with Jenkins or are we finally moving to GitHub Actions?
+
+Kevin: Please, GitHub Actions. Everyone on the team hates the Jenkins DSL.
+
+Elena: Alright, let’s make some decisions.
+
+We are moving to a microservices architecture using a "Vertical Slice" approach, starting with the Notification Service.
+
+We will use Kafka for asynchronous inter-service communication. Marcus, look into the cost-benefit of MSK vs. Confluent Cloud.
+
+We will prioritize GitHub Actions for the new CI/CD pipelines.
+
+Kevin, you have a green light for three weeks of team training in June.
+
+Sam: One last thing—security. We need a centralized Identity Provider. If we’re splitting services, we can’t have each one checking the session against the old monolith DB. We need to move to OAuth2 with an OIDC layer.
+
+Elena: Add that to the research spike. Sam, I want a technical design document for the OIDC integration on my desk by Monday. Marcus, get me those cloud cost comparisons. Kevin, I want a training curriculum draft by Wednesday so we can see what resources the devs need. Priyanka, you and I will meet tomorrow to re-align the board on the Q4 roadmap shift.
+
+Priyanka: Sounds like a plan. It’s going to be a rough summer, but it’s better than the app crashing every time we have a sale.
+
+Elena: Exactly. Meeting adjourned. Marcus, stay back for a second, I want to talk about those database lock logs from Tuesday.
+
+Executive Summary & Action Items
+Meeting Goal: Define the migration strategy from a monolithic to a microservices architecture to solve scalability and latency issues.
+
+Key Decisions:
+
+Architecture: Adopted a "Vertical Slice" migration strategy, beginning with the Notification Service.
+
+Communication: Enforced an event-driven model using Kafka as the primary message broker.
+
+Tooling: Transitioning from Jenkins to GitHub Actions for CI/CD.
+
+Strategy: Approved a 3-week "Training Sprint" in June for the backend team to master distributed systems.
+
+Action Items:
+
+Sam: Draft the Technical Design Document for OIDC/OAuth2 integration. (Due: Monday)
+
+Marcus: Provide a cost-comparison report between AWS MSK and Confluent Cloud. (Due: Friday)
+
+Kevin: Outline the developer training curriculum for microservices and Kafka. (Due: Wednesday)
+
+Priyanka & Elena: Update the Q4 Product Roadmap for board approval. (Due: Tomorrow)
+
+Marcus: Provide the detailed Terraform scripts for the new staging environment. (Due: Next Friday)
