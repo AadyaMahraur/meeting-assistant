@@ -1,0 +1,27 @@
+[00:00:00] Dave: Okay, um, is this... is the mic working? Can you guys, like, hear me?
+[00:00:05] Sam: Yeah, we hear you. You're, uh, you're a little loud, actually.
+[00:00:09] Dave: Oh, my bad. Let me just... is that better? Okay, cool. So, um, basically, I wanted to get everyone together to, you know, sort of talk about the... the new thing. The, uh, the onboarding flow for the... wait, what are we calling the dashboard update now? Is it Project Sunrise?
+[00:00:32] Pete: I mean, I thought we were, like, leaning towards Project Catalyst? Or maybe, um, Horizon? I don't know, marketing kind of, like, threw a bunch of names at a wall on Tuesday and, you know, we haven't really... yeah.
+[00:00:48] Dave: Right, right. Okay, well, whatever it's called, basically, the onboarding flow. We need to figure out, um, sort of the vibe of it. Because right now, it's a little... it's kind of just a box. You know?
+[00:01:05] Chloe: Yeah, I mean, functionally, it is a box. It's a modal window. But I get what you're saying. It's, like, very... um... sterile? We want it to be, I don't know, sort of welcoming. But not, like, too welcoming where it's, like, creepy. Like, we don't want it to sound like it's trying to be their best friend. Basically.
+[00:01:30] Sam: Right, but like, from a code perspective, um, if we're adding all these, you know, welcoming elements, are we talking about, like, animations? Because, I mean, if we add a bunch of Lottie files, it's gonna, you know, bloat the initial load time. And the whole point was to make it, like, fast. So, yeah.
+[00:01:52] Dave: No, no, totally. I hear you. Fast is... fast is good. But, um, I was thinking more about, like, the colors? Like, right now the button is, uh, it's green. But I feel like green is very... I don't know. What does green say to you guys?
+[00:02:10] Pete: I mean, green is, like, "go," right? It's affirmative. But, um, my dog is doing something weird right now, hold on... okay, he's fine. Um, yeah, green. I mean, we could do blue? Blue is, like, trust. You know, like banks use blue. Like Chase. Or, um, Facebook.
+[00:02:35] Chloe: But we aren't a bank. I mean, we're building, like, an analytics tool for, um, HR departments. So, like, blue is fine, I guess. But it's kind of boring. What if we did, like... a really soft purple?
+[00:02:50] Sam: Wait, purple? Like, for the primary CTA? I mean, I guess. But the whole design system is, like, slate and teal. If we just randomly drop a purple button in there, it's gonna look, you know, like a mistake. Basically.
+[00:03:08] Dave: Yeah, that's a good point. We don't want to break the, um, the design system. So maybe we stick with... I mean, what if it's just, like, a darker green? Or, you know, we could just do black. Like, Apple does a lot of black buttons now. Very minimalist.
+[00:03:25] Pete: I like the Apple thing. But, um, are we getting bogged down in, like, the button color? I thought we were talking about the, you know, the flow. Like, step one, step two. Because right now, step one is, um, asking for their phone number. Which, like, people hate that, right?
+[00:03:45] Chloe: Oh my god, yes. I have been saying this for, like, three weeks. We don't need their phone number. Why do we even, like, ask for it?
+[00:03:52] Dave: Well, I think, um, sales wanted it? Like, for the CRM. Or something. I don't know, I'd have to, like, look at the old Jira ticket. But basically, they said it was, you know, required for lead scoring. I think.
+[00:04:10] Sam: Can we just... make it optional? Like, just put a little asterisk. Or, wait, no, the asterisk means required. Put, like, "(optional)" next to it. Because from my end, I can just, you know, set the database column to accept a null value. It's literally, like, a five-second fix.
+[00:04:28] Dave: I mean... yeah? Maybe? Let me, um, let me circle back with sales on that. Because if we make it optional, and they, like, freak out, it's gonna be a whole thing. But yeah, let's, uh, let's table the phone number thing.
+[00:04:45] Pete: So, basically, we haven't decided on the button color, and we're tabling the phone number. What are we actually, like, doing here today?
+[00:04:55] Dave: Well, we're just, you know, aligning. It's an alignment meeting. I just wanted to make sure we're all, like, on the same page. Which I think we are. Sort of.
+[00:05:08] Chloe: Are we? I mean, I still don't know what, um, copy we're using for the headline. Is it still "Welcome to your new workspace"? Because that feels very, like, 2018.
+[00:05:20] Pete: Oh, I can, uh, I can write some new copy. I'll just, like, throw some prompts into ChatGPT and see what it spits out. Maybe something like, "Unleash your potential." Or, I don't know. I'll play around with it.
+[00:05:35] Dave: Yeah, do that. That sounds good. Um, alright, well, look at the time. I've got a, uh, a hard stop at the half-hour. So let's just, kind of, percolate on all this. Think about the colors, think about the, um, the vibe. And we'll just reconvene on, like, Tuesday? Or maybe Wednesday. I'll send a calendar invite.
+[00:06:00] Sam: Cool. So I'm just gonna... not change anything in the codebase yet?
+[00:06:05] Dave: Yeah, exactly. Just hold tight. Good talk, guys. Very, um, productive.
+[00:06:12] Chloe: Okay. Sure. Bye.
+[00:06:15] [Meeting Ends]
+

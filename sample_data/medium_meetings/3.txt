@@ -1,0 +1,145 @@
+INCIDENT COMMAND WAR ROOM: SEV-1 Outage "The Double Dip"
+Date: Friday, November 13th (Of course it is)
+Time: 08:00 AM PST (Incident started at 02:14 AM PST)
+Present: Sarah (VP Eng), Ben (Lead Backend), Raj (DevOps/SRE), Chloe (Head of Support)
+Status: DEFCON 1. Payments system double-charged ~5,200 customers. Zendesk is literally crashing.
+
+[08:00] THE "WHAT THE HELL JUST HAPPENED" TIMELINE
+Sarah: Nobody is sleeping until this is fixed and every cent is refunded. Raj, give me the timeline. No sugar-coating.
+
+Raj: * 02:14 AM: AWS us-east-1 had a network blip. Our primary Aurora Postgres instance initiated an automated failover to the read-replica.
+
+02:14 - 02:15 AM: Database was locked/unreachable for exactly 48 seconds during the DNS propagation.
+
+Ben: During that 48 seconds, the overnight ACH batch processing job kicked off.
+
+Raj: Right. The Celery workers picked up the batch file (about 12,000 pending subscriptions). They tried to write the "processing" state to the DB. DB timed out.
+
+Ben: And this is where it gets bad. The workers caught the OperationalError, and triggered the built-in retry mechanism. Exponential backoff, max retries = 3.
+
+Sarah: But if they retried, why did they double-charge? Doesn't Stripe have idempotency keys to prevent exactly this?
+
+Ben: [Long pause] Yes. Stripe does. But... our idempotency key generation logic was flawed.
+
+The Root Cause (Whiteboard diagram transcribed):
+
+How it should work: Idempotency_Key = Hash(User_ID + Invoice_ID). If you send it twice, Stripe ignores the second one.
+
+How we built it: Idempotency_Key = Hash(User_ID + Timestamp_of_Request).
+
+The Result: When the Celery worker retried 30 seconds later, the timestamp changed. Stripe saw it as a completely new, valid charge.
+
+Conclusion: We successfully charged 5,200 people. Then the DB came back online, the retry succeeded, and we charged them again.
+
+[08:30] THE BLEEDING (Customer Impact & Support Panic)
+Chloe: I don't care about the Celery workers right now. I care about the 3,000 angry emails in my queue.
+
+Chloe (Stats):
+
+Zendesk queue: 3,412 unread.
+
+Twitter mentions: Up 4000%. They are calling us scammers.
+
+Major Risk: It's Friday. People get paid today, or their rent is due today. We just double-charged them $149. We are going to cause overdraft fees.
+
+Question: Who pays the overdraft fees?
+
+Sarah: We do. Legal is drafting a policy now. We will reimburse any documented overdraft fees caused by this.
+
+Chloe: When can I tell them the refunds are processed? I need a script for my agents five minutes ago.
+
+Ben: We are writing the refund script now. But we can't just for-loop 5,200 refunds against the Stripe API. We will hit their rate limits (100 requests per second) and they will blackhole us.
+
+Sarah: Also, we are currently on the "Stripe Watchlist" because our dispute rate just spiked to 4%. If we do this wrong, Stripe freezes our entire merchant account and we go out of business by Tuesday.
+
+[09:00] THE FIX (Triaging the Fire)
+Priority 1: Stop the bleeding.
+
+Raj: I disabled the Celery beat scheduler. No more automated jobs are running. The system is essentially in read-only mode for payments.
+
+Sarah: Good. Keep it off until the code is patched.
+
+Priority 2: The Refund Script.
+
+Ben is writing a Python script to pull all duplicate charge_ids from the Stripe API created between 02:14 and 02:20 AM.
+
+Rule: We DO NOT query our own database to find the duplicates, because our database state is currently untrustworthy due to the failover timeout. Stripe is the source of truth right now.
+
+Rate Limiting Strategy: Batching requests. 50 refunds per second. time.sleep(1) between batches.
+
+WARNING from Raj: "Ben, do a dry-run first. Print the Charge IDs to a text file. If you accidentally refund the original charges instead of the duplicates, we are going to lose $750,000 in revenue."
+
+Sarah: I am personally reviewing the PR for the refund script. Nobody merges anything without my approval.
+
+Priority 3: The Code Patch (Fixing the Idempotency)
+
+Ticket created: ENG-992: Refactor Stripe Idempotency Key Generation
+
+New Logic: Key = UUID(Invoice_ID). Full stop. No timestamps. It must be deterministic.
+
+Action: Assigning this to Junior Dev (Marcus) while Ben handles the active refunds. Wait, no. Marcus is too new. Assigning to Elena.
+
+Priority 4: Customer Communication.
+
+Chloe needs a public status page update.
+
+Drafting the copy: "We are currently experiencing an issue where a subset of users may have seen a duplicate authorization on their cards. We have identified the root cause and are actively reversing the charges. No action is required on your part."
+
+Sarah: Do not say "authorization". It was a hard capture. The money is gone. Don't lie to them. Say "duplicate charge."
+
+[09:45] SCRIPT EXECUTION & MONITORING
+Ben has the script ready.
+
+Dry run results: Found 5,218 duplicate charge IDs. Total refund volume: $777,482.
+
+Silence in the room. That's a lot of money.
+
+Sarah: Are you 100% sure these are the duplicates?
+
+Ben: Yes. I cross-referenced the Stripe created_at timestamps. The first batch happened at 02:13:50. The exact same amounts for the exact same customer_ids hit again at 02:14:45. The script only targets the second batch.
+
+Sarah: Run it.
+
+Raj (Monitoring): Script is executing. 50 per second. Stripe API response times are stable. No 429 Rate Limit errors so far.
+
+10:15 AM: Script complete.
+
+Ben: All 5,218 refund API calls returned 200 OK.
+
+[10:30] POST-SCRIPT FALLOUT & NEXT STEPS
+Chloe: Okay, the API says refunded, but it takes 3-5 business days for banks to actually put the money back in their accounts. My agents are still going to get screamed at all weekend.
+
+Sarah: I know. We will send an email blast to affected users right now. Offer them a free month of the pro tier for the headache, and include a dedicated email address (reimbursements@finflow.com) for anyone who got hit with an overdraft fee.
+
+Raj: What about the cron jobs? We have the mid-day batch running at noon.
+
+Ben: Elena just pushed the hotfix for the idempotency keys. CI/CD is running.
+
+Sarah: We are skipping the staging deployment. Push the hotfix directly to production.
+
+Raj visibly winces. "Skipping staging? That's how we got here."
+
+Sarah: "We don't have a choice. If we don't turn the batch processor back on by noon, the B2B clients don't get their payouts, and that's a breach of contract."
+
+Deployment: v2.4.1-HOTFIX merged. Deploying to AWS Fargate now.
+
+Testing in Prod: Raj triggers a single test transaction. Fakes a database timeout by temporarily blocking the security group port. The worker retries.
+
+Result: Stripe rejects the retry. Error: Idempotency key already used.
+
+Ben: It worked. The key held.
+
+Sarah: Thank god. Turn the Celery beat scheduler back on.
+
+[11:00] ACTION ITEMS (The "Never Again" List)
+[Ben] Write a comprehensive post-mortem document for the board by Monday morning. Include the "5 Whys".
+
+[Raj] Implement tighter monitoring on Aurora failover events. PagerDuty should wake us up immediately if the primary DB drops, not 30 minutes later when the error rate spikes.
+
+[Elena] Audit ALL third-party API integrations (Twilio, SendGrid, AWS SES) for timestamp-based idempotency keys and rip them out.
+
+[Chloe] Draft the "apology tour" messaging and handle the Zendesk backlog. Authorize overtime for the weekend support shift.
+
+[Sarah] Go buy Ben, Raj, and Elena the most expensive coffee in a three-mile radius.
+
+(Meeting formally ends, but nobody actually leaves the room. Everyone just stares blankly at their monitors waiting for the next alert.)

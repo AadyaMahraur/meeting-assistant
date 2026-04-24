@@ -1,0 +1,141 @@
+Q3 Technical Architecture & Sprint Planning Offsite
+Date: Oct 12, 2026
+Attendees: Dev Team (Lead Frontend, Lead Backend, AI Specialist, PM)
+Format: Raw running notes / Whiteboard transcription
+Goal: Finalize architecture for React/FastAPI/Gemini stack, lock in sprint tasks for V1 core loop.
+
+09:00 - 10:30 | Block 1: Architecture Review & Current State
+•	High-Level Goal: Take raw meeting audio/text -> process -> extract structured data -> assign tasks -> execute.
+•	Current Stack Check:
+o	Frontend: React (Vite). State management is currently context API, getting messy.
+o	Backend: FastAPI (Python 3.11). Performance is good, but async task queue needs work.
+o	AI Layer: Google Gemini API (currently testing gemini-1.5-pro for large context window).
+•	Blocker identified: Frontend UI is freezing when waiting for the FastAPI backend to return the massive JSON payload from Gemini.
+o	Discussion: We can't do synchronous HTTP requests for a 45-second LLM generation.
+o	Decision: Moving to WebSockets for real-time status updates + Server-Sent Events (SSE) for streaming the summary text back to the React UI.
+•	Backend adjustments needed:
+o	FastAPI needs asyncio implementation tightened up.
+o	Need to introduce Redis + Celery for background job management.
+o	Workflow: React sends raw transcript POST -> FastAPI returns 202 Accepted + job_id -> Celery worker picks up task, calls Gemini API -> saves to DB -> fires WebSocket event -> React fetches final JSON.
+•	Action Items (Block 1):
+o	[ ] Backend: Stand up local Redis container in docker-compose.
+o	[ ] Backend: Rewrite /api/v1/process-meeting to be async/queue-based.
+o	[ ] Frontend: Implement WebSocket listener in React for job_id status changes (Queued, Processing, Complete, Failed).
+10:30 - 12:00 | Block 2: Deep Dive - Google Gemini API Integration
+•	Core problem: Transcripts are messy. People talk over each other, use filler words, jump between topics. How do we get clean structured output?
+•	Gemini 1.5 Pro capabilities: Massive context window (up to 2M tokens) is great. We don't need to chunk a 1-hour meeting transcript. We can feed the whole thing in one prompt.
+•	Prompt Engineering Strategy (Whiteboarding session):
+o	System Prompt: "You are an executive assistant. Your job is to analyze meeting transcripts and extract actionable intelligence. Output strictly in JSON."
+o	User Prompt Template: Needs to pass the raw text, but also metadata (attendees, date, project context).
+•	Structuring the JSON Output:
+o	We need to enforce a strict JSON schema via the API call so FastAPI doesn't crash trying to parse a bad string.
+o	Proposed Schema:
+	meeting_summary: String (max 500 words).
+	key_decisions: Array of strings.
+	action_items: Array of objects [{assignee, task_description, deadline, context_reference}].
+	parking_lot_topics: Array of strings (things mentioned but deferred).
+•	Handling Hallucinations & API Errors:
+o	Issue: What if Gemini assigns a task to someone who wasn't even in the meeting?
+o	Mitigation: Pass the attendee list in the prompt explicitly: Allowed_Assignees: [List]. Add a post-processing validation step in FastAPI using Pydantic. If assignee not in Allowed_Assignees, flag for manual human review in the UI.
+o	Rate Limiting: Gemini API has RPM limits. We need a fallback retry mechanism.
+	-> Implement exponential backoff in the Celery worker (e.g., tenacity Python library).
+•	Action Items (Block 2):
+o	[ ] AI: Finalize the JSON schema definition for the Gemini API call using response_schema parameter.
+o	[ ] Backend: Build the Pydantic models in FastAPI to validate the incoming JSON from Gemini before saving to Postgres.
+o	[ ] Backend: Add exponential backoff decorator to the Gemini API calling function.
+12:00 - 13:00 | Working Lunch - Security & Data Privacy
+•	Side convo over pizza.
+•	PII & NDA concerns: We are sending raw company meetings to a third-party LLM API.
+•	Current state: We are using standard API keys.
+•	Requirement: We must ensure zero-data-retention on the Google side for our enterprise clients.
+•	To-Do: PM to verify Google Cloud terms of service regarding API data usage for model training. Ensure we are opted-out of any data sharing.
+•	Idea floated: Do we need local masking? E.g., replacing "Project Phoenix" with "[REDACTED]" before sending to Gemini?
+o	Consensus: Too complex for V1. Will rely on enterprise API terms for now. Log it in Jira backlog for Q4.
+13:00 - 15:00 | Block 3: The "Execution" Layer (Action Item Logic)
+•	Focus: The app is called Meeting-to-Execution Assistant. Summaries aren't enough; we have to push tasks to other tools.
+•	Integration Targets for V1: Jira, Linear, Slack.
+•	Data Flow:
+1.	React UI displays the extracted action_items array from Gemini.
+2.	User reviews them (human-in-the-loop is mandatory, don't auto-create tasks).
+3.	User clicks "Push to Jira" on a specific task.
+•	FastAPI Endpoint Design for Integrations:
+o	Need a unified /api/v1/integrations/push endpoint.
+o	Payload: { task_id: 123, target_platform: "jira", project_key: "ENG" }
+•	Authentication pain point: Managing OAuth tokens for users' Jira/Slack accounts.
+o	Decision: Use a dedicated OAuth library in FastAPI (like Authlib).
+o	Store encrypted refresh tokens in Postgres.
+o	React frontend needs an "Integrations Settings" page to handle the OAuth redirect flows.
+•	Edge Case discussion: What if the task description extracted by the LLM is too vague for a Jira ticket? (e.g., "Fix the bug").
+o	Solution: We have the original transcript. The JSON schema (from Block 2) includes context_reference.
+o	When we create the Jira ticket via API, append a quote block to the ticket description: "Context from meeting: [Insert 2-3 sentences from transcript around where the task was discussed]".
+o	Frontend requirement: When user hovers over an action item in the React UI, highlight the corresponding text in the full transcript view.
+•	Action Items (Block 3):
+o	[ ] Frontend: Build "Integrations Settings" UI for OAuth connections.
+o	[ ] Frontend: Implement transcript text highlighting based on action item hover state.
+o	[ ] Backend: Scaffold OAuth flows for Jira and Slack.
+o	[ ] Backend: Build the outgoing webhook payload constructors for Jira and Linear.
+15:00 - 16:30 | Block 4: Frontend Architecture & React State
+•	Current Issue: Transcript payload is huge (can be 10k+ words). Rendering this in a standard React component is causing jank/dropped frames when scrolling.
+•	Solution -> Virtualization: * Need to implement a virtualized list for the transcript view (e.g., react-window or react-virtuoso). Only render the text nodes currently in the viewport.
+•	State Management:
+o	Context API is breaking down under the weight of real-time WebSocket updates and massive JSON trees.
+o	Decision: Migrate core app state to Zustand or Redux Toolkit.
+o	Vote: Team prefers Zustand for less boilerplate.
+o	Need to manage 3 distinct state slices:
+1.	MeetingState: Raw transcript, metadata, processing status.
+2.	ExtractedDataState: The JSON from Gemini (Summary, Decisions, Tasks).
+3.	UIState: Selected tabs, hover states, active modals.
+•	Streaming UI (The "Typewriter" effect):
+o	When the summary is generating, users want to see it type out, ChatGPT-style.
+o	How-to: FastAPI streams chunks via Server-Sent Events (SSE). React consumes the stream.
+o	React implementation details: Use the native EventSource API. Append incoming chunks to a localized state variable.
+o	Watch out: Do NOT trigger a full component re-render on every single character chunk. It will melt the browser. Batch updates or use a lightweight local ref for the typing text, only committing to global state on the [DONE] signal.
+•	Action Items (Block 4):
+o	[ ] Frontend: Spike on migrating transcript viewer to react-virtuoso.
+o	[ ] Frontend: Implement Zustand store and remove old Context providers.
+o	[ ] Frontend: Build the SSE consumer component for the streaming summary view.
+16:30 - 17:30 | Block 5: Database Schema & CI/CD
+•	Database: PostgreSQL via SQLAlchemy (async).
+•	Schema Review:
+o	users: id, email, hashed_password, created_at
+o	meetings: id, user_id, title, date, status (enum: uploaded, processing, complete, error), raw_transcript (TEXT).
+o	meeting_results: id, meeting_id (FK), summary (TEXT), decisions (JSONB).
+o	action_items: id, meeting_id (FK), assignee, description, status (enum: pending, pushed, dismissed), integration_link (URL).
+o	Note: Using JSONB for decisions is good for flexibility, but action_items need their own table because they have individual state (pushed to Jira vs pending).
+•	Alembic Migrations: * We need to establish a strict rule: No manual schema changes. Everything must go through Alembic revision scripts.
+•	CI/CD Pipeline (GitHub Actions):
+o	Current pipeline is just linting. We need automated testing before merge.
+o	Backend tests (Pytest): * Challenge: We can't hit the real Gemini API during unit tests (too slow, costs money).
+	Fix: Mock the Gemini API client response. Feed it a hardcoded perfect JSON response, and test that FastAPI parses it and saves it to the DB correctly.
+o	Frontend tests (Vitest/RTL):
+	Need to mock the WebSocket connection to test the UI state transitions (Uploading -> Processing -> Complete).
+•	Deployment:
+o	Frontend: Vercel (simple, automatic PR previews).
+o	Backend: Render or Heroku for V1. Need to make sure we configure the Redis add-on for the Celery workers.
+•	Action Items (Block 5):
+o	[ ] Backend: Generate Alembic migrations for the new action_items separate table.
+o	[ ] Backend: Write Pytest fixtures to mock the Gemini API responses.
+o	[ ] DevOps (PM): Setup Render environment for staging and attach Redis instance.
+
+Parking Lot / Deferred Items (Q4 or Post-Launch)
+•	Audio Processing: Right now we assume the user uploads a clean text transcript. Eventually, we need to handle raw .mp3/.wav files.
+o	Future Tech: Integrating an audio transcription model (like Whisper API or local Whisper.cpp) before it hits Gemini. Out of scope for V1 sprint.
+•	Speaker Diarization: Identifying who said what (Speaker A, Speaker B). Currently relying on whatever transcription tool the user used before uploading to us. If they upload a raw text block without names, the AI can't assign tasks properly.
+o	Workaround for now: Warn user in UI that transcripts must include speaker labels for accurate task assignment.
+•	RAG (Retrieval-Augmented Generation): Chatting with past meetings. "What did we decide about the database in last month's meeting?"
+o	Requires: Vector database (Pinecone/Weaviate) + text embedding pipeline. Way out of scope for now, but keep DB schema flexible enough to add an embeddings table later.
+
+Final Sprint 4 Commitments Summary
+Frontend (Lead: Frontend Dev)
+1.	Zustand state migration.
+2.	SSE integration for streaming summaries.
+3.	Virtualized list rendering for long transcript payloads.
+4.	"Human-in-the-loop" UI for editing action items before pushing.
+Backend (Lead: Backend Dev)
+1.	Move processing to async Celery + Redis queue.
+2.	Finalize strict JSON schema for Gemini 1.5 Pro prompt.
+3.	Setup OAuth infrastructure for Jira/Slack.
+4.	Implement exponential backoff for external API calls.
+Next Sync: Tuesday 10:00 AM for daily standup. Blockers to be raised in the #dev-backend Slack channel.
+(Meeting adjourned 17:35)
+
