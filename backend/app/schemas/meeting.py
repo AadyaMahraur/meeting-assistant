@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 from datetime import date, datetime
+from uuid import UUID
 
 class MeetingRequest(BaseModel):
     title: str
@@ -8,7 +9,7 @@ class MeetingRequest(BaseModel):
     text: str = Field(min_length=20)
 
 class MeetingResponse(BaseModel):
-    meeting_id: str
+    meeting_id: UUID
     status: str
     message: str
 
@@ -32,7 +33,7 @@ class Blocker(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class MeetingDetailedResponse(BaseModel):
-    id: str
+    id: UUID
     title: str
     meeting_date: date
     status: str
@@ -57,7 +58,7 @@ class MeetingStatusResponse(BaseModel):
 
 # for meeting history: individual, list
 class MeetingHistoryCard(BaseModel):
-    id: str
+    id: UUID
     title: str
     meeting_date: date
     status: str
