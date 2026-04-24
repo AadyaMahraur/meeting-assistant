@@ -6,9 +6,10 @@ from app.schemas.meeting import MeetingRequest, MeetingResponse, MeetingDetailed
 from app.db.database import get_db
 from app.services.ai_pipeline import process_meeting_text
 from app.services.extraction import save_extraction_results
-from app.utils.file_handling import validate_file, extract_text_from_file
+from app.utils.file_handling import validate_file, extract_text_from_file, check_filler_words
 from datetime import datetime
 from sqlalchemy import desc, or_
+import langdetect
 
 router = APIRouter()   
 
@@ -16,6 +17,22 @@ router = APIRouter()
 async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(get_db)):
     if not request_meeting.text.strip():
         raise HTTPException(status_code=400, detail="Empty Text")
+
+    word_count = len(request_meeting.text.strip().split())
+
+    if word_count < 50:
+        raise HTTPException(status_code=400, detail="Input too short. Please provide at least 50 words.")
+    if word_count > 10000:
+        raise HTTPException(status_code=400, detail="Input too long. Max limit is 10,000 words.")
+
+    try:
+        if langdetect.detect(request_meeting.text.strip()) != 'en':
+            raise HTTPException(status_code=400, detail="Only English text is supported.")
+    except:
+        raise HTTPException(status_code=400, detail="Could not determine language.")
+
+    if check_filler_words(request_meeting.text.strip()):
+        raise HTTPException(status_code=400, detail="Only filler words present.")
 
     # final_title = title if title else file.filename
     final_date = request_meeting.meeting_date if request_meeting.meeting_date else datetime.now().date()
