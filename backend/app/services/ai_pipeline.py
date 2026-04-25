@@ -1,68 +1,91 @@
-import os, json
-from pathlib import Path
+import os, json, logging, asyncio
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from tenacity import retry, wait_exponential, stop_after_attempt
 
 load_dotenv()
 client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+logger = logging.getLogger(__name__)
 
+# Custom error that carries our log data back to the database
+class PipelineError(Exception):
+    def __init__(self, message, metadata):
+        super().__init__(message)
+        self.metadata = metadata
 
-def process_meeting_text(text: str) -> dict:
-    prompt = '''
-        You are an expert meeting analyst. Your task is to extract strictly grounded, structured information from meeting notes or transcripts.
-        Analyze the following meeting content and extract:
-        1. SHORT_SUMMARY: A concise summary in 3-5 sentences. It should include the purpose of meeting, major discussion themes and any explicit decisions or outcomes (only if stated in the input). 
-        2. DETAILED_SUMMARY: Provide a comprehensive narrative summary. Length requirements: 1–3 paragraphs for short meetings (<500 words), 3–5 paragraphs for medium meetings (500–2000 words), 5–7 paragraphs for long meetings (2000–5000 words). Include all major discussion points, viewpoints raised, alternatives considered, constraints or factors discussed, conclusions or next steps (only if explicitly stated).
-        3. DECISIONS: A list of decisions that were made during the meeting. Extract only confirmed decisions (i.e., items where a clear conclusion or consensus is stated). For each decision, include:
-        -description: what was decided
-        -decided_by: who made or announced the decision (use "Not identified" if unclear)
-        4. ACTION_ITEMS: A list of tasks or follow-ups. For each, include:
-        -description: what needs to be done
-        -owner: responsible team or team lead (use "Not identified" if unclear)
-        -deadline: when it is due (use "Not specified" if not mentioned)
-        -priority: high, medium, or low (use "not specified" if not inferable)
-        5. BLOCKERS: A list of blockers, risks, or open questions. For each, include:
-        -description: what the issue is
-        -type: "blocker" (things that are preventing progress), "risk" (things that could go wrong), or "open_question" (things that were raised but not resolved)
-        -raised_by: who raised it (use "Not identified" if unclear)
-        6. FOLLOWUP_EMAIL: A professional follow-up email summarizing the meeting, including key decisions, action items, and next steps
+# 1. Retry Logic: 1 initial attempt + 2 retries = 3 attempts total.
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(3),
+    reraise=True
+)
+async def _call_gemini_with_retry(prompt: str, model_name: str, config: types.GenerateContentConfig):
+    # We use the async client (client.aio) so asyncio.wait_for can accurately track time
+    return await client.aio.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=config
+    )
 
-        IMPORTANT RULES:
-        1. Only extract information that is explicitly present in the input. Do NOT invent or assume information.
-        2. List every decision, action item, blocker which can be confidently inferred from the text.
-        3. If something is unclear or ambiguous, mark it as such.
-        4. If the input is too short or vague, say so in the summary and return empty lists for items you cannot identify.
-        5. Return your response as valid JSON matching this exact schema:
-        { "short_summary": "string", "detailed_summary": "string", "decisions": [ { "description": "string", 
-        "decided_by": "string" } ], "action_items": [ { "description": "string", "owner": "string", "deadline": "string", 
-        "priority": "string" } ], "blockers": [ { "description": "string", "type": "string", "raised_by": "string" } ], 
-        "followup_email": "string" }
-        6. Write in past tense and third person in a clear, neutral tone.
+async def generate_json_with_gemini(prompt: str) -> tuple[dict, dict]:
+    model_name = "gemini-2.5-flash"
+    
+    # Initialize the log data
+    metadata = {
+        "started_at": datetime.now(timezone.utc),
+        "model_used": model_name,
+        "prompt_tokens": 0,
+        "response_tokens": 0,
+        "retry_count": 0,
+        "success": False,
+        "error_details": None,
+        "completed_at": None
+    }
 
-        MEETING CONTENT:
-        %s
-    '''% (text)
-
-    try: 
-        response = client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.1
-            )
+    try:
+        config = types.GenerateContentConfig(
+            temperature=0.1,
+            response_mime_type="application/json"
         )
-        print(response)
+
+        # 2. Timeout Logic: 60 seconds maximum
+        response = await asyncio.wait_for(
+            _call_gemini_with_retry(prompt, model_name, config),
+            timeout=60.0
+        )
+
+        # Extract Token Usage
+        if response.usage_metadata:
+            metadata["prompt_tokens"] = response.usage_metadata.prompt_token_count
+            metadata["response_tokens"] = response.usage_metadata.candidates_token_count
+
+        # Tenacity attempt_number starts at 1, so we subtract 1 for retry_count
+        attempts = _call_gemini_with_retry.retry.statistics.get("attempt_number", 1)
+        metadata["retry_count"] = attempts - 1
+
         json_text = response.text.replace("```json", "").replace("```", "").strip()
         results = json.loads(json_text)
-        print(results)
-        required_keys = {"short_summary", "detailed_summary", "decisions", "action_items", "blockers", "followup_email"}
-        if not required_keys.issubset(results.keys()):
-            raise ValueError("AI Response missing required JSON keys")
-        return results
-    except json.JSONDecodeError:
-        print("Failed to parse AI response as JSON")
-        raise
+
+        metadata["success"] = True
+        metadata["completed_at"] = datetime.now(timezone.utc)
+        return results, metadata
+
+    except asyncio.TimeoutError:
+        metadata["error_details"] = "Processing timed out (exceeded 60 seconds)."
+        metadata["completed_at"] = datetime.now(timezone.utc)
+        metadata["retry_count"] = _call_gemini_with_retry.retry.statistics.get("attempt_number", 1) - 1
+        raise PipelineError(metadata["error_details"], metadata)
+
+    except json.JSONDecodeError as e:
+        metadata["error_details"] = f"Invalid JSON format returned: {str(e)}"
+        metadata["completed_at"] = datetime.now(timezone.utc)
+        metadata["retry_count"] = _call_gemini_with_retry.retry.statistics.get("attempt_number", 1) - 1
+        raise PipelineError("The AI generated an invalid data format.", metadata)
+
     except Exception as e:
-        print("AI Pipeline error at: {}".format(e))
-        raise
+        metadata["error_details"] = str(e)
+        metadata["completed_at"] = datetime.now(timezone.utc)
+        metadata["retry_count"] = _call_gemini_with_retry.retry.statistics.get("attempt_number", 1) - 1
+        raise PipelineError(f"AI Pipeline failed: {str(e)}", metadata)
