@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import meetings
+from app.api import meetings, search
 
 app = FastAPI(title="Meeting Assistant API")
-app.include_router(meetings.router, prefix="/api/meetings", tags=["meetings"])
+app.include_router(search.router, prefix="/api/meetings", tags=["Search"])
+app.include_router(meetings.router, prefix="/api/meetings", tags=["Meetings"])
 
 # CORS Middleware 
 # This allows your API to accept requests from different domains (like a React or Vue frontend)

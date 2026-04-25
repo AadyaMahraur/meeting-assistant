@@ -30,7 +30,7 @@ async def _call_gemini_with_retry(prompt: str, model_name: str, config: types.Ge
     )
 
 async def generate_json_with_gemini(prompt: str) -> tuple[dict, dict]:
-    model_name = "gemini-3-flash-preview"
+    model_name = "gemini-2.5-flash"
     
     # Initialize the log data
     metadata = {
