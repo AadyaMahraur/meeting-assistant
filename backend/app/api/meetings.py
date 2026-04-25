@@ -161,6 +161,22 @@ async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
     
     return meeting
 
+@router.delete('/{meeting_id}', status_code=status.HTTP_200_OK)
+async def delete_meeting(meeting_id: str, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting Not Found")
+
+    try:
+        db.delete(meeting)
+        db.commit()
+        
+        return {"message": "Meeting deleted successfully."}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete meeting: {str(e)}")
 
 @router.get('/', response_model=MeetingListResponse, status_code=status.HTTP_200_OK)
 async def get_all_meetings(
