@@ -6,11 +6,16 @@ app = FastAPI(title="Meeting Assistant API")
 app.include_router(search.router, prefix="/api/meetings", tags=["Search"])
 app.include_router(meetings.router, prefix="/api/meetings", tags=["Meetings"])
 
-# CORS Middleware 
+origins = [
+    "http://localhost:3000", #for local testing
+    "http://localhost:5173", #to use Vite locally
+    "https://meeting-assistant-red.vercel.app" 
+]
+
 # This allows your API to accept requests from different domains (like a React or Vue frontend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, replace "*" with frontend URLs
+    allow_origins=origins,  # For production, replace "*" with frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
