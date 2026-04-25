@@ -22,7 +22,7 @@ export const submitFileMeeting = async (title, meetingDate, file) => {
 
   const response = await fetch(`${API_BASE_URL}/meetings/upload`, {
     method: 'POST',
-    body: formData, // No headers needed for FormData!
+    body: formData, 
   });
 
   if (!response.ok) {
@@ -56,4 +56,16 @@ export const searchMeetings = async (query, page = 1, perPage = 9) => {
   );
   if (!response.ok) throw new Error("Search Failed");
   return response.json();
+};
+
+export const deleteMeeting = async (meetingId) => {
+    const response = await fetch(`${API_BASE_URL}/meetings/${meetingId}`, {
+        method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+        throw new Error("Failed to delete meeting");
+    }
+    
+    return response.json();
 };
