@@ -17,12 +17,20 @@ const HomePage = () => {
     setIsLoading(true);
     setError(null);
 
+    const title = formData.title && formData.title.trim() !== "" 
+    ? formData.title 
+    : null;
+
+    const meetingDate = formData.meetingDate && formData.meetingDate.trim() !== "" 
+    ? formData.meetingDate 
+    : null;
+
     try {
       let data;
       if (formData.type === 'text') {
-        data = await submitTextMeeting(formData.title, formData.meetingDate, formData.text);
+        data = await submitTextMeeting(title, meetingDate, formData.text);
       } else {
-        data = await submitFileMeeting(formData.title, formData.meetingDate, formData.file);
+        data = await submitFileMeeting(title, meetingDate, formData.file);
       }
       
       navigate(`/results/${data.meeting_id}`);
