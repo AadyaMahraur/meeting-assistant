@@ -12,10 +12,10 @@ origins = [
     "https://meeting-assistant-red.vercel.app" 
 ]
 
-# This allows your API to accept requests from different domains (like a React or Vue frontend)
+# Allows API to accept requests from React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # For production, replace "*" with frontend URLs
+    allow_origins=origins,  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
