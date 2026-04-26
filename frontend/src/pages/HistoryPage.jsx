@@ -1,30 +1,26 @@
 import { useEffect, useState, useCallback } from "react";
-import { getAllMeetings, searchMeetings } from "@/services/api"; // Added searchMeetings
+import { getAllMeetings, searchMeetings } from "@/services/api"; 
 import Navigation from "../components/Navigation";
 import MeetingCard from "../components/MeetingCard";
-import SearchBar from "../components/SearchBar"; // Don't forget to import this
+import SearchBar from "../components/SearchBar"; 
 import { Button } from "@/components/ui/button";
 
 const HistoryPage = () => {
-  // 1. All States must be inside the component
   const [data, setData] = useState({ meetings: [], total: 0 });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
-  // 2. Define the load logic
   const loadData = useCallback(async () => {
     console.log(`Fetching: Search="${searchTerm}", Page=${page}`);
     setLoading(true);
     try {
       let result;
-      // If there is text in the search bar, use the search API
       if (searchTerm.trim()) {
         setIsSearching(true);
         result = await searchMeetings(searchTerm, page);
       } else {
-        // Otherwise, use the standard history API
         setIsSearching(false);
         result = await getAllMeetings(page);
       }
@@ -34,16 +30,14 @@ const HistoryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, page]); // Triggers whenever search text or page changes
+  }, [searchTerm, page]);
 
-  // 3. One single useEffect to rule them all
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const handleSearch = useCallback((val) => {
     setSearchTerm((prev) => {
-      // ONLY reset to page 1 if the search text actually changed
       if (prev !== val) {
         setPage(1);
         return val;
@@ -55,35 +49,39 @@ const HistoryPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
-      <main className="container py-10">
+      
+      {/* THE FIX: Added mx-auto, px-4 md:px-8, and max-w-7xl for the grid layout */}
+      <main className="container mx-auto pt-8 pb-16 px-4 md:px-8 max-w-7xl">
+        
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <h1 className="text-3xl font-bold">Meeting History</h1>
-          {/* 5. Add the SearchBar component */}
+          <h1 className="text-3xl font-bold text-gray-900">Meeting History</h1>
           <SearchBar onSearch={handleSearch} isLoading={loading && isSearching} />
         </div>
         
         {loading && data.meetings.length === 0 ? (
-          <div className="flex justify-center py-20">Processing...</div>
+          <div className="flex justify-center py-20 text-gray-600 font-medium">Processing...</div>
         ) : data.meetings.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {data.meetings.map(m => <MeetingCard key={m.id} meeting={m} />)}
           </div>
         ) : (
-          <div className="text-center py-20 bg-white rounded-lg border-2 border-dashed">
-            <p className="text-muted-foreground">No meetings found.</p>
+          <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-gray-200">
+            <p className="text-gray-500 font-medium">No meetings found.</p>
           </div>
         )}
 
-        {/* 6. Pagination - Only show if we have results and not currently searching (or adjust as needed) */}
         {data.total > 0 && (
-          <div className="flex justify-center items-center mt-10 gap-4">
+          <div className="flex justify-center items-center mt-12 gap-4">
             <Button 
               variant="outline" 
               disabled={page === 1 || loading} 
               onClick={() => setPage(p => p - 1)}
-            >Previous</Button>
+              className="shadow-sm"
+            >
+              Previous
+            </Button>
             
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm font-medium text-gray-500">
               Page {page}
             </span>
 
@@ -91,7 +89,10 @@ const HistoryPage = () => {
               variant="outline" 
               disabled={page * 9 >= data.total || loading} 
               onClick={() => setPage(p => p + 1)}
-            >Next</Button>
+              className="shadow-sm"
+            >
+              Next
+            </Button>
           </div>
         )}
       </main>
