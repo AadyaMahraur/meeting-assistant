@@ -38,11 +38,9 @@ class MeetingDetailedResponse(BaseModel):
     meeting_date: date
     status: str
     input_type: str
-    # word_count: int
+    word_count: int
     short_summary: str
     detailed_summary: str
-    # action_item_count: int
-    # decision_count: int
     created_at: datetime
     followup_email: str
 
@@ -63,10 +61,10 @@ class MeetingHistoryCard(BaseModel):
     meeting_date: date
     status: str
     input_type: str
-    # word_count: int
+    word_count: int
     short_summary: str
-    # action_item_count: int
-    # decision_count: int
+    action_item_count: int
+    decision_count: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
