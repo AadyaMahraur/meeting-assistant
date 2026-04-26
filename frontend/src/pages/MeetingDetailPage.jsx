@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // <-- Added useNavigate here
+import { useParams, useNavigate } from "react-router-dom"; 
 import Navigation from "../components/Navigation";
 import ResultView from "../components/ResultView";
 import ProcessingIndicator from "../components/ProcessingIndicator";
@@ -31,7 +31,7 @@ const MeetingDetailPage = () => {
       if (isConfirmed) {
           try {
               await deleteMeeting(id); 
-              navigate('/'); 
+              navigate('/history'); 
           } catch (error) {
               console.error("Error deleting meeting:", error);
               alert("Failed to delete the meeting. Please try again.");
