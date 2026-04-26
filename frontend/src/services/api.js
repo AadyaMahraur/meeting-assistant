@@ -9,7 +9,16 @@ export const submitTextMeeting = async (title, meetingDate, text) => {
   
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.detail || 'Failed to submit text');
+    let errorMessage = 'Failed to submit text';
+
+    if (errorData.detail) {
+      if (Array.isArray(errorData.detail)) {
+        errorMessage = errorData.detail[0].msg;
+      } else {
+        errorMessage = errorData.detail;
+      }
+    }
+    throw new Error(errorMessage);
   }
   return response.json();
 };
