@@ -36,7 +36,8 @@ const HomePage = () => {
       navigate(`/results/${data.meeting_id}`);
       
     } catch (err) {
-      setError(err.message);
+      console.log("Parsed Error:", err.message);
+      setError(err.message); 
       setIsLoading(false);
     }
   };
