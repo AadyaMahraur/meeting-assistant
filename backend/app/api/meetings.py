@@ -19,10 +19,12 @@ router = APIRouter()
 @router.post('/text', response_model=MeetingResponse, status_code=status.HTTP_202_ACCEPTED)
 async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(get_db)):
     validated_text, word_count = validate_text_content(request_meeting.text)
+
+    final_title = request_meeting.title if request_meeting.title else f"New Meeting - {datetime.now().strftime(('%b %d, %H:%M'))}"
     final_date = request_meeting.meeting_date if request_meeting.meeting_date else datetime.now().date()
 
     new_meeting = Meeting(
-        title=request_meeting.title, 
+        title=final_title, 
         meeting_date=final_date, 
         raw_input_text=validated_text, 
         status="pending",

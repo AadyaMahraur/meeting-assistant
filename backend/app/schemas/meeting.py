@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 from datetime import date, datetime
 from uuid import UUID
 
 class MeetingRequest(BaseModel):
-    title: str
-    meeting_date: date
+    title: Optional[str]
+    meeting_date: Optional[date] = None
     text: str = Field(min_length=20)
 
 class MeetingResponse(BaseModel):
