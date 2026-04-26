@@ -3,12 +3,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, or_
 
 from app.db.models import Meeting, ActionItem, Decision
-from app.schemas.meeting import MeetingListResponse
+# Updated Import
+from app.schemas.meeting import PaginatedMeetingHistory
 from app.db.database import get_db
 
 router = APIRouter()
 
-@router.get('/search', response_model=MeetingListResponse, status_code=status.HTTP_200_OK)
+@router.get('/search', response_model=PaginatedMeetingHistory, status_code=status.HTTP_200_OK)
 async def meeting_search(
     q: str,
     page: int = 1,

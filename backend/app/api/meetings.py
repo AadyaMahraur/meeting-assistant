@@ -5,7 +5,14 @@ from datetime import datetime, timezone
 from sqlalchemy import desc
 
 from app.db.models import Meeting
-from app.schemas.meeting import MeetingRequest, MeetingResponse, MeetingDetailedResponse, MeetingStatusResponse, MeetingListResponse
+# Updated Imports
+from app.schemas.meeting import (
+    TextMeetingUpload, 
+    MeetingUploadAck, 
+    MeetingDetailResult, 
+    MeetingStatusResult, 
+    PaginatedMeetingHistory
+)
 from app.db.database import get_db
 
 from app.services.extraction import process_meeting_extraction
@@ -16,8 +23,8 @@ from app.utils.file_handling import validate_file, extract_text_from_file, valid
 
 router = APIRouter()   
 
-@router.post('/text', response_model=MeetingResponse, status_code=status.HTTP_202_ACCEPTED)
-async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(get_db)):
+@router.post('/text', response_model=MeetingUploadAck, status_code=status.HTTP_202_ACCEPTED)
+async def meetings_text(request_meeting: TextMeetingUpload, db: Session = Depends(get_db)):
     validated_text, word_count = validate_text_content(request_meeting.text)
 
     final_title = request_meeting.title if request_meeting.title else f"New Meeting - {datetime.now().strftime(('%b %d, %H:%M'))}"
@@ -66,14 +73,14 @@ async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(g
         }
         save_processing_log(new_meeting.id, fallback_meta, db)
         
-    return MeetingResponse(
+    return MeetingUploadAck(
         meeting_id=str(new_meeting.id), 
         status=new_meeting.status,
         message="Meeting processed successfully." if new_meeting.status == "completed" else "Meeting submission failed during AI extraction."
     )
 
 
-@router.post('/upload', response_model=MeetingResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post('/upload', response_model=MeetingUploadAck, status_code=status.HTTP_202_ACCEPTED)
 async def meetings_upload(
     file: UploadFile = File(...), 
     title: Optional[str] = Form(None), 
@@ -130,7 +137,7 @@ async def meetings_upload(
                 }
                 save_processing_log(new_meeting.id, fallback_meta, db)
 
-            return MeetingResponse(
+            return MeetingUploadAck(
                 meeting_id=str(new_meeting.id), 
                 status=new_meeting.status,
                 message="Meeting processed successfully." if new_meeting.status == "completed" else "Meeting submission failed during AI extraction."
@@ -139,14 +146,14 @@ async def meetings_upload(
     except Exception as e:
         if not new_meeting:
             raise e
-        return MeetingResponse(
+        return MeetingUploadAck(
             meeting_id=str(new_meeting.id), 
             status="failed",
             message="File upload successful but processing crashed."
         )
 
 
-@router.get('/{meeting_id}/status', response_model=MeetingStatusResponse, status_code=status.HTTP_200_OK)
+@router.get('/{meeting_id}/status', response_model=MeetingStatusResult, status_code=status.HTTP_200_OK)
 async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
 
@@ -156,7 +163,7 @@ async def get_meeting_status(meeting_id: str, db: Session = Depends(get_db)):
     return meeting
 
 
-@router.get('/{meeting_id}', response_model=MeetingDetailedResponse, status_code=status.HTTP_200_OK)
+@router.get('/{meeting_id}', response_model=MeetingDetailResult, status_code=status.HTTP_200_OK)
 async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
 
@@ -164,6 +171,7 @@ async def get_meeting(meeting_id: str, db : Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Meeting Not Found")
     
     return meeting
+
 
 @router.delete('/{meeting_id}', status_code=status.HTTP_200_OK)
 async def delete_meeting(meeting_id: str, db: Session = Depends(get_db)):
@@ -182,7 +190,8 @@ async def delete_meeting(meeting_id: str, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete meeting: {str(e)}")
 
-@router.get('/', response_model=MeetingListResponse, status_code=status.HTTP_200_OK)
+
+@router.get('/', response_model=PaginatedMeetingHistory, status_code=status.HTTP_200_OK)
 async def get_all_meetings(
     page: int = 1,
     per_page: int = 9,

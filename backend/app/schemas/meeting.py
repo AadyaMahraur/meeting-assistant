@@ -3,17 +3,20 @@ from typing import List, Optional
 from datetime import date, datetime
 from uuid import UUID
 
-class MeetingRequest(BaseModel):
+# 1. Input Schemas
+class TextMeetingUpload(BaseModel):
     title: Optional[str]
     meeting_date: Optional[date] = None
     text: str = Field(min_length=20)
 
-class MeetingResponse(BaseModel):
+# 2. Acknowledgment Schemas (Initial Submission)
+class MeetingUploadAck(BaseModel):
     meeting_id: UUID
     status: str
     message: str
 
-class ActionItem(BaseModel):
+# 3. Nested Entity Schemas (Suffix 'Schema' prevents DB model collision)
+class ActionItemSchema(BaseModel):
     description: str
     owner: str
     deadline: str
@@ -21,18 +24,19 @@ class ActionItem(BaseModel):
     status: str
     model_config = ConfigDict(from_attributes=True)
 
-class Decision(BaseModel):
+class DecisionSchema(BaseModel):
     description: str
     decided_by: str
     model_config = ConfigDict(from_attributes=True)
 
-class Blocker(BaseModel):
+class BlockerSchema(BaseModel):
     description: str
     type: str
     raised_by: str
     model_config = ConfigDict(from_attributes=True)
 
-class MeetingDetailedResponse(BaseModel):
+# 4. Detail Schemas
+class MeetingDetailResult(BaseModel):
     id: UUID
     title: str
     meeting_date: date
@@ -44,18 +48,17 @@ class MeetingDetailedResponse(BaseModel):
     created_at: datetime
     followup_email: str
 
-    action_items: List[ActionItem] = []
-    decisions: List[Decision] = []
-    blockers: List[Blocker] = []
+    action_items: List[ActionItemSchema] = []
+    decisions: List[DecisionSchema] = []
+    blockers: List[BlockerSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
 
-
-class MeetingStatusResponse(BaseModel):
+class MeetingStatusResult(BaseModel):
     status: str
 
-# for meeting history: individual, list
-class MeetingHistoryCard(BaseModel):
+# 5. List/Pagination Schemas
+class MeetingCardSchema(BaseModel):
     id: UUID
     title: str
     meeting_date: date
@@ -68,8 +71,8 @@ class MeetingHistoryCard(BaseModel):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-class MeetingListResponse(BaseModel):
-    meetings: List[MeetingHistoryCard]
+class PaginatedMeetingHistory(BaseModel):
+    meetings: List[MeetingCardSchema]
     total: int
     page: int
-    per_page:int
+    per_page: int
