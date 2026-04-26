@@ -18,7 +18,7 @@ router = APIRouter()
 
 @router.post('/text', response_model=MeetingResponse, status_code=status.HTTP_202_ACCEPTED)
 async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(get_db)):
-    validated_text = validate_text_content(request_meeting.text)
+    validated_text, word_count = validate_text_content(request_meeting.text)
     final_date = request_meeting.meeting_date if request_meeting.meeting_date else datetime.now().date()
 
     new_meeting = Meeting(
@@ -26,7 +26,8 @@ async def meetings_text(request_meeting: MeetingRequest, db: Session = Depends(g
         meeting_date=final_date, 
         raw_input_text=validated_text, 
         status="pending",
-        input_type="text"
+        input_type="text",
+        word_count = word_count
     )
 
     db.add(new_meeting)
@@ -80,7 +81,7 @@ async def meetings_upload(
     new_meeting = None
     try: 
         if validate_file(file):
-            validated_text = extract_text_from_file(file)
+            validated_text, word_count = extract_text_from_file(file)
             final_title = title if title else file.filename
             final_date = meeting_date if meeting_date else datetime.now().date()
 
@@ -89,7 +90,8 @@ async def meetings_upload(
                 meeting_date=final_date, 
                 raw_input_text=validated_text, 
                 status="pending",
-                input_type="transcript file"
+                input_type="transcript file",
+                word_count = word_count
             )
 
             db.add(new_meeting)
@@ -196,14 +198,18 @@ async def get_all_meetings(
     
     formatted_meetings = []
     for m in meetings:
+        print(m.word_count, len(m.action_items))
         m_dict = {
             "id": str(m.id), 
             "title": m.title,
             "meeting_date": m.meeting_date,
             "status": m.status,
             "input_type": m.input_type,
+            "word_count": m.word_count,
             "short_summary": m.short_summary,
-            "created_at": m.created_at
+            "created_at": m.created_at,
+            "action_item_count": len(m.action_items),
+            "decision_count": len(m.decisions)
         }
         formatted_meetings.append(m_dict)
 
