@@ -3,19 +3,19 @@ from typing import List, Optional
 from datetime import date, datetime
 from uuid import UUID
 
-# 1. Input Schemas
+#Input Schemas
 class TextMeetingUpload(BaseModel):
     title: Optional[str]
     meeting_date: Optional[date] = None
     text: str = Field(min_length=20)
 
-# 2. Acknowledgment Schemas (Initial Submission)
+#Acknowledgment Schemas (Initial Submission)
 class MeetingUploadAck(BaseModel):
     meeting_id: UUID
     status: str
     message: str
 
-# 3. Nested Entity Schemas (Suffix 'Schema' prevents DB model collision)
+#Nested Entity Schemas (Suffix 'Schema' prevents DB model collision)
 class ActionItemSchema(BaseModel):
     description: str
     owner: str
@@ -35,7 +35,7 @@ class BlockerSchema(BaseModel):
     raised_by: str
     model_config = ConfigDict(from_attributes=True)
 
-# 4. Detail Schemas
+#Detail Schemas
 class MeetingDetailResult(BaseModel):
     id: UUID
     title: str
@@ -43,10 +43,10 @@ class MeetingDetailResult(BaseModel):
     status: str
     input_type: str
     word_count: int
-    short_summary: str
-    detailed_summary: str
+    short_summary: Optional[str] = None     
+    detailed_summary: Optional[str] = None  
     created_at: datetime
-    followup_email: str
+    followup_email: Optional[str] = None    
 
     action_items: List[ActionItemSchema] = []
     decisions: List[DecisionSchema] = []
@@ -57,7 +57,7 @@ class MeetingDetailResult(BaseModel):
 class MeetingStatusResult(BaseModel):
     status: str
 
-# 5. List/Pagination Schemas
+#List/Pagination Schemas
 class MeetingCardSchema(BaseModel):
     id: UUID
     title: str
@@ -65,7 +65,7 @@ class MeetingCardSchema(BaseModel):
     status: str
     input_type: str
     word_count: int
-    short_summary: str
+    short_summary: Optional[str] = None     
     action_item_count: int
     decision_count: int
     created_at: datetime
