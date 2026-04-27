@@ -1,5 +1,5 @@
 ### Table: meetings
-
+ 
 | Column            | Type         | Notes                                             |
 | :---------------- | :----------- | :------------------------------------------------ |
 | id                | UUID         | Primary key, auto-generated                       |
