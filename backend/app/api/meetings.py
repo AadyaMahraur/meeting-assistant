@@ -198,10 +198,11 @@ async def get_all_meetings(
     status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(Meeting).filter(Meeting.status != "failed")
-
-    # if status:
-    #     query = query.filter(Meeting.status == status)
+    
+    if status:
+        query = db.query(Meeting).filter(Meeting.status == status)
+    else:
+        query = db.query(Meeting).filter(Meeting.status == "completed")
 
     total_count = query.count()
     offset = (page - 1) * per_page
