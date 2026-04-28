@@ -25,7 +25,7 @@ async def meeting_search(
         Decision.description.ilike(f"%{q}%")
     )
 
-    query = query.filter(search_filter).group_by(Meeting.id) 
+    query = query.filter(search_filter).filter(Meeting.status == "completed").group_by(Meeting.id) 
 
     total_count = query.count()
     offset = (page - 1) * per_page

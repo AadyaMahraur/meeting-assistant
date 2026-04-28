@@ -37,20 +37,14 @@ const HistoryPage = () => {
   }, [loadData]);
 
   const handleSearch = useCallback((val) => {
-    setSearchTerm((prev) => {
-      if (prev !== val) {
-        setPage(1);
-        return val;
-      }
-      return prev;
-    });
+    setSearchTerm(val);
+    setPage(1); 
   }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       
-      {/* THE FIX: Added mx-auto, px-4 md:px-8, and max-w-7xl for the grid layout */}
       <main className="container mx-auto pt-8 pb-16 px-4 md:px-8 max-w-7xl">
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
