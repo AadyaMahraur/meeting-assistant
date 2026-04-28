@@ -26,6 +26,14 @@ class Meeting(Base):
     decisions = relationship("Decision", backref="meeting", cascade="all, delete-orphan")
     blockers = relationship("Blocker", backref="meeting", cascade="all, delete-orphan")
 
+    @property
+    def action_item_count(self) -> int:
+        return len(self.action_items)
+
+    @property
+    def decision_count(self) -> int:
+        return len(self.decisions)
+
 class ActionItem(Base):
     __tablename__ = "action_items"
 

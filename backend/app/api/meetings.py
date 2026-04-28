@@ -74,7 +74,7 @@ async def meetings_text(request_meeting: TextMeetingUpload, db: Session = Depend
         save_processing_log(new_meeting.id, fallback_meta, db)
         
     return MeetingUploadAck(
-        meeting_id=str(new_meeting.id), 
+        meeting_id=new_meeting.id, 
         status=new_meeting.status,
         message="Meeting processed successfully." if new_meeting.status == "completed" else "Meeting submission failed during AI extraction."
     )
@@ -138,7 +138,7 @@ async def meetings_upload(
                 save_processing_log(new_meeting.id, fallback_meta, db)
 
             return MeetingUploadAck(
-                meeting_id=str(new_meeting.id), 
+                meeting_id=new_meeting.id, 
                 status=new_meeting.status,
                 message="Meeting processed successfully." if new_meeting.status == "completed" else "Meeting submission failed during AI extraction."
             )
@@ -208,25 +208,8 @@ async def get_all_meetings(
     offset = (page - 1) * per_page
     meetings = query.order_by(desc(Meeting.created_at)).offset(offset).limit(per_page).all()
     
-    formatted_meetings = []
-    for m in meetings:
-        print(m.word_count, len(m.action_items))
-        m_dict = {
-            "id": str(m.id), 
-            "title": m.title,
-            "meeting_date": m.meeting_date,
-            "status": m.status,
-            "input_type": m.input_type,
-            "word_count": m.word_count,
-            "short_summary": m.short_summary,
-            "created_at": m.created_at,
-            "action_item_count": len(m.action_items),
-            "decision_count": len(m.decisions)
-        }
-        formatted_meetings.append(m_dict)
-
     return {
-        "meetings": formatted_meetings,
+        "meetings": meetings, 
         "total": total_count,
         "page": page,
         "per_page": per_page
